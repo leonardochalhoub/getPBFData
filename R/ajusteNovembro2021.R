@@ -1,6 +1,6 @@
 #' @export
 #
-ajusteNov2021 <- function() {
+ajusteNov2021 <- function(pasta) {
   # Apenas no último arquivo da Bolsa Família, mês 11 de 2021,
   # os nomes das duas primeiras colunas estão invertidos, o que causa erro no algoritmo depois.
   # Ajuste 'manual' no código, melhor do que fazer na mão no arquivo csv
