@@ -2,6 +2,15 @@
 
 downloadData_Passo1 <-  function(pasta) {
 
+  listOfPackages <- c("plyr")
+
+  for(package in listOfPackages){
+    if(!require(package, character.only = TRUE)){
+      install.packages(package, dependencies = TRUE)
+    }
+    library(package, character.only = TRUE)
+  }
+
   pastaOrigem <-  paste0(pasta, '/source_data')
   pastaCSV <- paste0(pasta, '/data')
 

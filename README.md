@@ -17,6 +17,7 @@ Na pasta /arquivos_aux, aqui no github, está o arquivo populacao.xlsx, resultad
 
 ```r
 # github (dev version)
+install.packages('devtools')
 devtools::install_github('leonardochalhoub/getPBFData')
 ```
 
@@ -34,8 +35,10 @@ getPBFData::downloadData_Passo1(pasta = folder)
 ## Passo 1.1: Ajuste no arquivo Bolsa Família Novembro/2021
 Apenas em um mês, Novembro/21, a estrutura do arquivo csv está diferente. Por essa razão, fiz uma correção com pequeno chunk de código. Somente rode o Passo 2 depois deste ajuste realizado, para evitar erros na base de dados.
 
+Até 13 de Março de 2023, o arquivo na origem ainda não estava corrigido. Por favor, para quem for usar, sempre verificar comparando os nomes das colunas de Outubro com Novembro de 2021, para o Bolsa Família. Caso corrijam, essa seção será retirada.
+
 ```r
-ajusteNov2021 <- function() {
+ajusteNov2021 <- function(pasta) {
   # Apenas no último arquivo da Bolsa Família, mês 11 de 2021,
   # os nomes das duas primeiras colunas estão invertidos, o que causa erro no algoritmo depois.
   # Ajuste 'manual' no código, melhor do que fazer na mão no arquivo csv
@@ -47,6 +50,12 @@ ajusteNov2021 <- function() {
                                        locale = readr::locale(encoding="latin1"),
                                        progress = readr::show_progress()) |>
     dplyr::rename('MÊS COMPETÊNCIA' = `MÊS REFERÊNCIA`, 'MÊS REFERÊNCIA' = `MÊS COMPETÊNCIA`)
+  print('Iniciou escrita: utils::write.csv2(...')
+
+  utils::write.csv2(ajuste_nov_2021,
+                    file = paste0(pastaCSV, '/202111_BolsaFamilia_Pagamentos.csv'),
+                    row.names = FALSE,
+                    fileEncoding = 'latin1')
 ```
 
 ## Passo 2: Processamento dos Dados e Summarising para Municípios, Estados, Anos e Meses
@@ -67,7 +76,7 @@ getPBFData::postProc_Passo3(pasta = folder)
 
 ## Passo 4: Visualizando os dados num Web App em Shiny
 Neste app um usuário pode baixar as tabelas em formato xlsx (Excel), e também gerar gráficos de barras e em mapas, com diferentes escalas de cores do pacote Viridis. [https://g7eewc-oldman0ds.shinyapps.io/app_pbf_auxbr/](https://g7eewc-oldman0ds.shinyapps.io/app_pbf_auxbr/).
-Está hospedado gratuitamente no shinyapps.io, é um protótipo. O front-end não está perfeito e é possível que dê erro de falta de memória (no servidor), caso você tente muitas combinações diferentes. Caso o site trave, espere alguns minutos e tente novamente.
+Está hospedado gratuitamente no shinyapps.io, é um protótipo. O front-end não está perfeito e é possível que dê erro de falta de memória (no servidor), caso você tente muitas combinações diferentes. Caso o site trave, espere alguns minutos e tente novamente. O melhor desempenho será alcançado com um servidor local, rodando o código abaixo.
 
 ```r
 getPBFData::shinyApp_Passo4(pasta = folder)
