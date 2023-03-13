@@ -1,3 +1,4 @@
+#' @export
 downloadData <-  function(pastaOrigem, pastaCSV, pastaOutputs) {
 
   listOfPackages <- c("plyr","priceR", "janitor",
