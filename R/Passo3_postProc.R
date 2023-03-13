@@ -111,6 +111,8 @@ postProc_Passo3 <- function(pasta) {
       pbfPerCapita = (inflac2021) / populacao
     )
 
+  cli::cli_alert_success("Inflação dados municipais: OK")
+
   saveRDS(pbf_municipios_df, paste0(pastaOutputs, '/pbf_municipios.rds'))
 
   if (!exists("cities")) {
@@ -151,4 +153,5 @@ postProc_Passo3 <- function(pasta) {
 
   cli::cli_alert_success("Pós-processamento OK!")
 
+  cli::cli_alert_success("4 Arquivos Armazenados em /outputs no formato RDS: 2 possuem dados geolocalização")
 }
