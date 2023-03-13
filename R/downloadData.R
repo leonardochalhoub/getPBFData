@@ -4,12 +4,10 @@ downloadData <-  function(pasta) {
 
   pastaOrigem <-  paste0(pasta, '/source_data')
   pastaCSV <- paste0(pasta, '/data')
-  pastaOutputs <- paste0(pasta, '/outputs')
 
   dir.create(file.path(pasta))
   dir.create(file.path(pastaOrigem))
   dir.create(file.path(pastaCSV))
-  dir.create(file.path(pastaOutputs))
 
   listaZipFiles <- list.files(path = pastaOrigem, pattern = "*.zip", full.names = TRUE)
 
@@ -26,14 +24,14 @@ downloadData <-  function(pasta) {
   lista_anos_PBF = c(
     "2013", "2014", "2015",
     "2016", "2017", "2018",
-    "2019", "2020", "2021"
+    "2019", "2020", "2021",
+    "2023", "2024", "2025"
   )
 
-  lista_anos_Aux_Br = c(
-    "2021", "2022"
-  )
+  lista_anos_Aux_Br = c("2021", "2022", "2023")
 
   # O Bolsa Família existe desde 2003, mas só temos dados desde Janeiro de 2013 a Novembro de 2021.
+  # Apesar de ter sido substituído pelo Auxílio Brasil em 2021, temos a notícia de que, em 2023, o Bolsa Família retornou oficialmente.
 
   for (i in lista_anos_PBF) {
     for (j in lista_meses) {
