@@ -1,0 +1,13 @@
+Package: getPBFData
+Title: Download de Dados do Pagamento Bolsa Família e Auxílio Brasil
+Version: 1.0.0
+Authors@R: 
+    person("Leonardo", "Chalhoub", , "leochalhoub@hotmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0003-0484-158X"))
+Description: Automatização do download e pré-processamento dos dados do Pagamento do Bolsa Família (2013-2021) e Auxílio Brasil (2021-2022).
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+URL: https://github.com/leonardochalhoub/getPBFData
+BugReports: https://github.com/leonardochalhoub/getPBFData/issues
