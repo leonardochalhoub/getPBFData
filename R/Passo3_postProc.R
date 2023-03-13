@@ -4,8 +4,8 @@ postProc_Passo3 <- function(pasta) {
 
   cli::cli_h1("Pós-Processamento com objetivo de reduzir a granularidade de Ano Mês para apenas Ano")
 
-  listOfPackages <- c("openxlsx", "dplyr", "priceR", "geobr")
-
+  listOfPackages <- c("openxlsx", "dplyr", "priceR", "geobr", "readxl")
+  pasta = '~/Dados_Bolsa_Familia_Aux_Brasil'
   pastaOutputs <- paste0(pasta, '/outputs')
 
   for(package in listOfPackages){
@@ -15,7 +15,7 @@ postProc_Passo3 <- function(pasta) {
     library(package, character.only = TRUE)
   }
 
-  populacao_estados <- openxlsx::read.xlsx('https://github.com/leonardochalhoub/getPBFData/raw/master/arquivos_aux/populacao.xlsx',
+  populacao_estados <- openxlsx::read.xlsx('arquivos_aux/populacao.xlsx',
                                          sheet = 'Estados') |>
     tidyr::pivot_longer(cols = 3:12,
                         names_to = 'Ano',
@@ -75,7 +75,7 @@ postProc_Passo3 <- function(pasta) {
   cli::cli_alert_success("Agregado por Estado e Ano + Total Estadual: OK")
 
   populacao_municipios <-
-    openxlsx::read.xlsx('https://github.com/leonardochalhoub/getPBFData/raw/master/arquivos_aux/populacao.xlsx',
+    readxl::read_xlsx('arquivos_aux/populacao.xlsx',
                       sheet = 'Municipios') |>
     tidyr::pivot_longer(cols = 3:12,
                         names_to = 'Ano',
@@ -85,7 +85,7 @@ postProc_Passo3 <- function(pasta) {
     stringr::str_to_upper(populacao_municipios$nome_municipio)
 
   populacao_municipios$nome_municipio <-
-    iconv(populacao_municipios$nome_municipio, to = 'ASCII//TRANSLIT')
+    iconv(populacao_municipios$nome_municipio, from = 'UTF-8', to = 'ASCII//TRANSLIT')
 
   pbf_municipios_df <-
     readRDS(paste0(pastaOutputs, '/total_ano_mes_municipio.rds')) |>
