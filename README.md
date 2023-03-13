@@ -1,6 +1,6 @@
 `GetPBFData` é um pacote em linguagem R que objetiva permitir acesso simplificado a dados públicos relativos aos pagamentos do Programa Bolsa Família (PBF) e também de seu substituto, o Auxílio Brasil. Todos os dados estão disponíveis totalmente livres pelo governo brasileiro, porém a forma em que se apresenta atualmente pode trazer desafios e bastante trabalho manual para quem deseja explorá-los a fundo, o que talvez até impossibilite pesquisas.
 
-Uma dificuldade é que os dados estão disponibilizados em arquivos zip contendo csv, em frequência mensal, com cada arquivo possuindo 14 milhões de linhas, ou seja, uma planilha que não é possível de ser aberta no Excel. Outra dificuldade é o tamanho dos arquivos que, além de precisarem ser baixados um a um no site oficial, são enormes: em Março de 2023, temos dados desde 2013 até Novembro de 2022, o que totalizam 180 gigas de dados em csv.
+Uma dificuldade é que os dados estão disponibilizados em arquivos zip contendo csv, em frequência mensal, com cada arquivo possuindo 14 milhões de linhas, ou seja, uma planilha que não é possível de ser aberta no Excel. Outra dificuldade é o tamanho dos arquivos que, além de precisarem ser baixados um a um no site oficial, são enormes: em Março de 2023, temos dados desde 2013 até Novembro de 2022, o que totalizam 180 gigas de dados em csv. Na pasta /arquivos_aux, estão os arquivos finais totalmente processados a nível de Ano, Município e Estado, em formato RDS, para facilitar sua vida - basta carregar os arquivos e utilizar os dados. Caso você queira rodar tudo do zero, comece a partir do passo 1, levará algumas horas mas você terá controle total do processo.
 
 Para análise destes dados, o foco não é nos beneficiários de forma individual mas, sim, nas agregações. Este pacote está sendo desenvolvido para ser útil a pesquisadores, cientistas de dados, mestres, especialistas, bacharéis e estudantes que possam se interessar por Gestão Pública no Brasil e queiram acessar de forma mais rápida e resumida os dados oficiais. Os dados em sua forma bruta estão disponíveis desde Janeiro de 2013 até Novembro de 2021 para o PBF, e de Novembro de 2021 até Novembro de 2022 para o Auxílio Brasil. Considero aqui os programas como literais substitutos - Novembro/2021 é somado e as séries são consideradas uma continuidade do principal programa de assistência social do Brasil.
 
@@ -45,7 +45,7 @@ ajusteNov2021 <- function() {
   ajuste_nov_2021 <-  readr::read_csv2(file = paste0(pastaCSV, '/202111_BolsaFamilia_Pagamentos.csv'),
                                        col_names = TRUE,
                                        locale = readr::locale(encoding="latin1"),
-                                       progress = readr::show_progress()) %>%
+                                       progress = readr::show_progress()) |>
     dplyr::rename('MÊS COMPETÊNCIA' = `MÊS REFERÊNCIA`, 'MÊS REFERÊNCIA' = `MÊS COMPETÊNCIA`)
 ```
 
@@ -66,6 +66,8 @@ getPBFData::postProc_Passo3(pasta = folder)
 ```
 
 ## Passo 4: Visualizando os dados num Web App em Shiny
+Neste app um usuário pode baixar as tabelas em formato xlsx (Excel), e também gerar gráficos de barras e em mapas, com diferentes escalas de cores do pacote Viridis. [https://g7eewc-oldman0ds.shinyapps.io/app_pbf_auxbr/](https://g7eewc-oldman0ds.shinyapps.io/app_pbf_auxbr/).
+Está hospedado gratuitamente no shinyapps.io, é um protótipo. O front-end não está perfeito e é possível que dê erro de falta de memória (no servidor), caso você tente muitas combinações diferentes. Caso o site trave, espere alguns minutos e tente novamente.
 
 ```r
 getPBFData::shinyApp_Passo4(pasta = folder)
