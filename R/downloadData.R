@@ -1,16 +1,9 @@
 #' @export
-downloadData <-  function(pastaOrigem, pastaCSV, pastaOutputs) {
+downloadData <-  function(pasta) {
 
-  listOfPackages <- c("plyr","priceR", "janitor",
-                      "dplyr", "ggplot2", "stringr",
-                      "geobr")
-
-  for(package in listOfPackages){
-    if(!require(package, character.only = TRUE)){
-      install.packages(package, dependencies = TRUE)
-    }
-    library(package, character.only = TRUE)
-  }
+  pastaOrigem <-  paste0(pasta, '/source_data')
+  pastaCSV <- paste0(pasta, '/data')
+  pastaOutputs <- paste0(pasta, '/outputs')
 
   dir.create(file.path(pastaOrigem))
   dir.create(file.path(pastaCSV))
@@ -38,9 +31,7 @@ downloadData <-  function(pastaOrigem, pastaCSV, pastaOutputs) {
     "2021", "2022"
   )
 
-  # O Bolsa Família existe desde 2003, mas só temos dados desde 2013 na fonte utilizada.
-  # "2003", "2004", "2005", "2006", "2007", "2008",
-  # "2009", "2010", "2011", "2012",
+  # O Bolsa Família existe desde 2003, mas só temos dados desde Janeiro de 2013 a Novembro de 2021.
 
   for (i in lista_anos_PBF) {
     for (j in lista_meses) {
@@ -65,7 +56,7 @@ downloadData <-  function(pastaOrigem, pastaCSV, pastaOutputs) {
     }
   }
 
-  # Download dados Auxílio Brasil 11/2021 até 11/2022
+  # Download dados Auxílio Brasil de Novembro de 2021 até Novembro de 2022.
 
   for (i in lista_anos_Aux_Br) {
     for (j in lista_meses) {
@@ -89,6 +80,7 @@ downloadData <-  function(pastaOrigem, pastaCSV, pastaOutputs) {
       }
     }
   }
+
   if (length(listaCSV) == 0) {
     plyr::ldply(.data = listaZipFiles, .fun = unzip, exdir = pastaCSV)
   } else {
