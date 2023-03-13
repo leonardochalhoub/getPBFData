@@ -8,12 +8,14 @@ HEIGHT_FILE <- 7.75
 WIDTH_FILE <- 9
 MESSAGE_DURATION <- 20
 
+pastaOutputs <- paste0(pasta, '/outputs')
+
 # -- Estados
-pbf_estados_df <- readRDS('~/teste3/outputs/pbf_estados_df_geo.rds')
+pbf_estados_df <- readRDS(paste0(pastaOutputs, '/pbf_estados_df_geo.rds'))
 
 # -- Municipios
 
-pbf_municipios_df <- readRDS('~/teste3/outputs/pbf_municipios_geo.rds')
+pbf_municipios_df <- readRDS(paste0(pastaOutputs, '/pbf_municipios_geo.rds'))
 
 ui <- shiny::fluidPage(
   tags$head(

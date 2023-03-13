@@ -3,4 +3,4 @@
 export(dataPrep_Passo2)
 export(downloadData_Passo1)
 export(postProc_Passo3)
-export(runExample)
+export(shinyApp_Passo4)
