@@ -1,10 +1,12 @@
 #' @export
+
 downloadData <-  function(pasta) {
 
   pastaOrigem <-  paste0(pasta, '/source_data')
   pastaCSV <- paste0(pasta, '/data')
   pastaOutputs <- paste0(pasta, '/outputs')
 
+  dir.create(file.path(pasta))
   dir.create(file.path(pastaOrigem))
   dir.create(file.path(pastaCSV))
   dir.create(file.path(pastaOutputs))
@@ -13,7 +15,7 @@ downloadData <-  function(pasta) {
 
   listaCSV <- list.files(path = pastaCSV, pattern = "*.csv", full.names = TRUE)
 
-  # Download dos dados do Pagamento do Bolsa Família, disponíveis de 01/2013 a 11/2021
+  # Download dos dados do Pagamento do Bolsa Família (PBF), disponíveis de 01/2013 a 11/2021
 
   lista_meses = c(
     "01", "02", "03", "04",
