@@ -1,8 +1,6 @@
-appShiny_Passo4 <- function(pasta){
+
 
   library(sf) # Se não carregar a sf, a interpretação da coluna geom não funciona e atrapalha todo o resto.
-
-  pastaOutputs <- paste0(pasta, '/outputs')
 
   OFFSET <- 2
   HEIGHT <- 300
@@ -1720,4 +1718,4 @@ appShiny_Passo4 <- function(pasta){
   }
 
   shiny::shinyApp(ui, server)
-}
+
