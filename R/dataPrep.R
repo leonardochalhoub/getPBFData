@@ -22,9 +22,10 @@ dataPrep <- function(pasta) {
   valor_estado = data.frame()
   valor_municipio = data.frame()
 
+  j <- 1
+
   for (i in listaCSV) {
-    j <- 1
-    cli::cli_h1(sprintf('Iniciando leitura do arquivo %s', i))
+    cli::cli_h1(paste0('Iniciando leitura do arquivo %s', i, ' . Arquivo ', j, '/', length(listaCSV)))
     df <- try(
       readr::read_csv2(file = i,
                        col_names = TRUE,
