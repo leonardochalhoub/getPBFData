@@ -2,7 +2,7 @@
 
 dataPrep <- function(pasta) {
 
-  listOfPackages <- c("plyr", "janitor",
+  listOfPackages <- c("janitor",
                       "dplyr", "stringr")
 
   for(package in listOfPackages){
@@ -58,6 +58,8 @@ dataPrep <- function(pasta) {
 
   saveRDS(valor_estado, file = paste0(pastaOutputs, "/total_ano_mes_estados.rds"))
 
+  cli::cli_alert_success("Agregado por Estado, Ano e Mês: OK")
+
   valor_municipio$Ano <- stringr::str_sub(valor_municipio$mes_competencia, start= 1, end = 4)
   valor_municipio$Mes <- stringr::str_sub(valor_municipio$mes_competencia, start= 5, end = 6)
 
@@ -67,4 +69,8 @@ dataPrep <- function(pasta) {
     dplyr::arrange(uf, nome_municipio, Ano, Mes)
 
   saveRDS(valor_municipio, file = paste0(pastaOutputs, "/total_ano_mes_municipio.rds"))
+  cli::cli_alert_success("Agregado por Muncípio, Estado, Ano e Mês: OK")
+
+  cli::cli_alert_success("2 Arquivos Armazenados em /outputs no formato RDS")
+
 }
