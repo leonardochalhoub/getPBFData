@@ -8,6 +8,8 @@ HEIGHT_FILE <- 7.75
 WIDTH_FILE <- 9
 MESSAGE_DURATION <- 20
 
+pasta <- folder
+
 pastaOutputs <- paste0(pasta, '/outputs')
 
 # -- Estados
