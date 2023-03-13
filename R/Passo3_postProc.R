@@ -4,6 +4,8 @@ postProc_Passo3 <- function(pasta) {
 
   listOfPackages <- c("openxlsx", "dplyr", "priceR", "geobr")
 
+  pastaOutputs <- paste0(pasta, '/outputs')
+
   for(package in listOfPackages){
     if(!require(package, character.only = TRUE)){
       install.packages(package, dependencies = TRUE)
@@ -19,7 +21,7 @@ postProc_Passo3 <- function(pasta) {
                         names_to = 'Ano',
                         values_to = 'populacao')
   pbf_estados_df <-
-    readRDS('outputs/total_ano_mes_estados.rds') |>
+    readRDS(paste0(pastaOutputs, '/total_ano_mes_estados.rds')) |>
     dplyr::group_by(Ano, uf) |>
     dplyr::summarise(n_benef = mean(n, na.rm = TRUE),
                      valor = sum(total_estado, na.rm = TRUE) / 1e9) |>
@@ -36,7 +38,7 @@ postProc_Passo3 <- function(pasta) {
       pbfPerCapita = (inflac2021 * 1e9) / populacao
     )
 
-  saveRDS(pbf_estados_df, 'outputs/pbf_estados_df.rds')
+  saveRDS(pbf_estados_df, paste0(pastaOutputs, '/pbf_estados_df.rds'))
 
   if (!exists("states")) {
     states <- geobr::read_state(year = 2019)
@@ -64,7 +66,7 @@ postProc_Passo3 <- function(pasta) {
 
   rm(estadosAgregados_df)
 
-  saveRDS(pbf_estados_df, 'outputs/pbf_estados_df_geo.rds')
+  saveRDS(pbf_estados_df, paste0(pastaOutputs, '/pbf_estados_df_geo.rds'))
 
   populacao_municipios <-
     openxlsx::read.xlsx('https://github.com/leonardochalhoub/getPBFData/raw/master/arquivos_aux/populacao.xlsx',
@@ -80,7 +82,7 @@ postProc_Passo3 <- function(pasta) {
     iconv(populacao_municipios$nome_municipio, to = 'ASCII//TRANSLIT')
 
   pbf_municipios_df <-
-    readRDS('outputs/total_ano_mes_municipio.rds') |>
+    readRDS(paste0(pastaOutputs, '/total_ano_mes_municipio.rds')) |>
     dplyr::group_by(Ano, uf, nome_municipio) |>
     dplyr::summarise(n_benef = mean(n, na.rm = TRUE),
                      valor = sum(total_municipio, na.rm = TRUE)) |> # / 1e9
@@ -100,7 +102,7 @@ postProc_Passo3 <- function(pasta) {
       pbfPerCapita = (inflac2021) / populacao
     )
 
-  saveRDS(pbf_municipios_df, 'outputs/pbf_municipios.rds')
+  saveRDS(pbf_municipios_df, paste0(pastaOutputs, '/pbf_municipios.rds'))
 
   if (!exists("cities")) {
     cities <- geobr::read_municipality(code_muni = "all", year = 2019)
@@ -134,5 +136,5 @@ postProc_Passo3 <- function(pasta) {
 
   rm(municipiosAgregados_df)
 
-  saveRDS(pbf_municipios_df, 'outputs/pbf_municipios_geo.rds')
+  saveRDS(pbf_municipios_df, paste0(pastaOutputs, '/pbf_municipios_geo.rds'))
 }
