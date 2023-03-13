@@ -10,7 +10,7 @@ postProc_Passo3 <- function(pasta) {
     }
     library(package, character.only = TRUE)
   }
-  populacao_estados <- readxl::read_xlsx('arquivos_aux/populacao.xlsx',
+  populacao_estados <- readxl::read_xlsx('https://github.com/leonardochalhoub/getPBFData/raw/master/arquivos_aux/populacao.xlsx',
                                          sheet = 'Estados') |>
     tidyr::pivot_longer(cols = 3:12,
                         names_to = 'Ano',
@@ -64,7 +64,7 @@ postProc_Passo3 <- function(pasta) {
   saveRDS(pbf_estados_df, 'outputs/pbf_estados_df_geo.rds')
 
   populacao_municipios <-
-    readxl::read_xlsx('arquivos_aux/populacao.xlsx',
+    readxl::read_xlsx('https://github.com/leonardochalhoub/getPBFData/raw/master/arquivos_aux/populacao.xlsx',
                       sheet = 'Municipios') |>
     tidyr::pivot_longer(cols = 3:12,
                         names_to = 'Ano',
