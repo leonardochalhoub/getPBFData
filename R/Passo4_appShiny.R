@@ -1,3 +1,5 @@
+#' @export
+
 library(sf) # Se não carregar a sf, a interpretação da coluna geom não funciona e atrapalha todo o resto.
 
 OFFSET <- 2
