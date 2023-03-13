@@ -2,6 +2,8 @@
 
 postProc_Passo3 <- function(pasta) {
 
+  cli::cli_h1("Pós-Processamento com objetivo de reduzir a granularidade de Ano Mês para apenas Ano")
+
   listOfPackages <- c("openxlsx", "dplyr", "priceR", "geobr")
 
   pastaOutputs <- paste0(pasta, '/outputs')
@@ -12,8 +14,6 @@ postProc_Passo3 <- function(pasta) {
     }
     library(package, character.only = TRUE)
   }
-
-  populacao <-
 
   populacao_estados <- openxlsx::read.xlsx('https://github.com/leonardochalhoub/getPBFData/raw/master/arquivos_aux/populacao.xlsx',
                                          sheet = 'Estados') |>
@@ -29,8 +29,12 @@ postProc_Passo3 <- function(pasta) {
                        dplyr::select(1, 3, 4),
                      by = c('Ano', 'uf'))
 
+  cli::cli_h2("Iniciando Inflação dos dados estaduais para Reais de 2021 (pacote priceR, IPCA)")
+
   pbf_estados_df$inflac2021 <-
     priceR::adjust_for_inflation(pbf_estados_df$valor, pbf_estados_df$Ano, "BR", to_date = 2021)
+
+  cli::cli_alert_success("Inflação dados estaduais: OK")
 
   pbf_estados_df <- pbf_estados_df |>
     dplyr::mutate(
@@ -68,6 +72,8 @@ postProc_Passo3 <- function(pasta) {
 
   saveRDS(pbf_estados_df, paste0(pastaOutputs, '/pbf_estados_df_geo.rds'))
 
+  cli::cli_alert_success("Agregado por Estado e Ano + Total Estadual: OK")
+
   populacao_municipios <-
     openxlsx::read.xlsx('https://github.com/leonardochalhoub/getPBFData/raw/master/arquivos_aux/populacao.xlsx',
                       sheet = 'Municipios') |>
@@ -89,6 +95,9 @@ postProc_Passo3 <- function(pasta) {
     dplyr::left_join(populacao_municipios,
                      by = c('Ano', 'uf', 'nome_municipio')) |>
     dplyr::arrange(uf, nome_municipio, Ano)
+
+  cli::cli_h2("Iniciando Inflação dos dados municipais para Reais de 2021 (pacote priceR, IPCA)")
+  cli::cli_h2("Para os Municípios, esta etapa pode demorar uma hora ou mais para terminar...")
 
   pbf_municipios_df$inflac2021 <-
     priceR::adjust_for_inflation(pbf_municipios_df$valor,
@@ -137,4 +146,9 @@ postProc_Passo3 <- function(pasta) {
   rm(municipiosAgregados_df)
 
   saveRDS(pbf_municipios_df, paste0(pastaOutputs, '/pbf_municipios_geo.rds'))
+
+  cli::cli_alert_success("Agregado por Município, Estado e Ano + Total Municipal: OK")
+
+  cli::cli_alert_success("Pós-processamento OK!")
+
 }
