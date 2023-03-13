@@ -4,8 +4,8 @@ postProc_Passo3 <- function(pasta) {
 
   cli::cli_h1("Pós-Processamento com objetivo de reduzir a granularidade de Ano Mês para apenas Ano")
 
-  listOfPackages <- c("openxlsx", "dplyr", "priceR", "geobr", "readxl")
-  pasta = '~/Dados_Bolsa_Familia_Aux_Brasil'
+  listOfPackages <- c("dplyr", "priceR", "geobr", "readxl")
+
   pastaOutputs <- paste0(pasta, '/outputs')
 
   for(package in listOfPackages){
