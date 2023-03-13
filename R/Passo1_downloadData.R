@@ -84,10 +84,10 @@ downloadData_Passo1 <-  function(pasta) {
   }
 
   if (length(listaCSV) == 0) {
-    plyr::ldply(.data = cli::cli_progress_along(listaZipFiles), .fun = unzip, exdir = pastaCSV)
+    cli::cli_progress_along(plyr::ldply(.data = listaZipFiles, .fun = unzip, exdir = pastaCSV))
+    cli::cli_alert_success("Descompressão 100% completa com sucesso!")
+    cli::cli_alert_success("Todos os arquivos CSV estão na pasta /data.")
   } else {
     print(sprintf("Já existem %s arquivos CSV na pasta.", length(listaCSV)))
   }
-  cli::cli_alert_success("Descompressão 100% completa com sucesso!")
-  cli::cli_alert_success("Todos os arquivos CSV estão na pasta /data.")
 }
