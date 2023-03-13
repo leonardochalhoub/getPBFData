@@ -31,11 +31,29 @@ folder <- '~/Dados_Bolsa_Familia_Aux_Brasil'
 getPBFData::downloadData_Passo1(pasta = folder)
 ```
 
+## Passo 1.1: Ajuste no arquivo Bolsa Família Novembro/2021
+Apenas em um mês, Novembro/21, a estrutura do arquivo csv está diferente. Por essa razão, fiz uma correção com pequeno chunk de código. Somente rode o Passo 2 depois deste ajuste realizado, para evitar erros na base de dados.
+
+```r
+ajusteNov2021 <- function() {
+  # Apenas no último arquivo da Bolsa Família, mês 11 de 2021,
+  # os nomes das duas primeiras colunas estão invertidos, o que causa erro no algoritmo depois.
+  # Ajuste 'manual' no código, melhor do que fazer na mão no arquivo csv
+
+  pastaCSV <- paste0(pasta, '/data')
+
+  ajuste_nov_2021 <-  readr::read_csv2(file = paste0(pastaCSV, '/202111_BolsaFamilia_Pagamentos.csv'),
+                                       col_names = TRUE,
+                                       locale = readr::locale(encoding="latin1"),
+                                       progress = readr::show_progress()) %>%
+    dplyr::rename('MÊS COMPETÊNCIA' = `MÊS REFERÊNCIA`, 'MÊS REFERÊNCIA' = `MÊS COMPETÊNCIA`)
+```
+
 ## Passo 2: Processamento dos Dados e Summarising para Municípios, Estados, Anos e Meses
 
 No final desta etapa, que também pode demorar algumas horas, são gerados arquivos em formato RDS na pasta /outputs. A ideia é não precisar processar tudo de novo. A partir da próxima etapa, os dados são carregados dos RDS, o que facilita muito o trabalho posterior.
 
-```{r}
+```r
 getPBFData::dataPrep_Passo2(pasta = folder)
 ```
 
