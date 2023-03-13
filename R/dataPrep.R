@@ -23,7 +23,8 @@ dataPrep <- function(pasta) {
   valor_municipio = data.frame()
 
   for (i in listaCSV) {
-    cli::cli_h1(i)
+    j <- 1
+    cli::cli_h1('Iniciando leitura do arquivo ', i)
     df <- try(
       readr::read_csv2(file = i,
                        col_names = TRUE,
@@ -32,6 +33,7 @@ dataPrep <- function(pasta) {
                        col_select = c(1, 3, 5, 8, 9)) |>
         janitor::clean_names()
     )
+    cli::cli_h2(paste0('Agregando por Estado arquivo ', j,'/', length(listaCSV), '...'))
     try(
       df_estado <- df |>
         dplyr::group_by(mes_competencia, uf) |>
@@ -39,7 +41,7 @@ dataPrep <- function(pasta) {
                          total_estado = sum(valor_parcela, na.rm = TRUE)))
     try(valor_estado <- rbind(valor_estado, df_estado))
     try(rm(df_estado))
-    cli::cli_h2(paste0('Agregado por Estado arquivo ', length(i),'/', length(listaCSV)))
+    cli::cli_h2(paste0('Agregando por Município arquivo ', j,'/', length(listaCSV), '...'))
     try(
       total_municipio <- df |>
         dplyr::group_by(mes_competencia, nome_municipio, uf) |>
@@ -47,7 +49,7 @@ dataPrep <- function(pasta) {
                          total_municipio = sum(valor_parcela, na.rm = TRUE)))
     try(valor_municipio <- rbind(valor_municipio, total_municipio))
     try(rm(df, total_municipio))
-    cli::cli_h2(paste0('Agregado por Município arquivo ', length(i),'/', length(listaCSV)))
+    j <- j + 1
   }
 
   valor_estado$Ano <- stringr::str_sub(valor_estado$mes_competencia, start= 1, end = 4)
