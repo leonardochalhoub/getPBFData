@@ -23,7 +23,7 @@ dataPrep <- function(pasta) {
   valor_municipio = data.frame()
 
   for (i in listaCSV) {
-    print(i)
+    cli::cli_h1(i)
     df <- try(
       readr::read_csv2(file = i,
                        col_names = TRUE,
@@ -39,6 +39,7 @@ dataPrep <- function(pasta) {
                          total_estado = sum(valor_parcela, na.rm = TRUE)))
     try(valor_estado <- rbind(valor_estado, df_estado))
     try(rm(df_estado))
+    cli::cli_h2(paste0('Agregado por Estado arquivo ', length(i),'/', length(listaCSV)))
     try(
       total_municipio <- df |>
         dplyr::group_by(mes_competencia, nome_municipio, uf) |>
@@ -46,6 +47,7 @@ dataPrep <- function(pasta) {
                          total_municipio = sum(valor_parcela, na.rm = TRUE)))
     try(valor_municipio <- rbind(valor_municipio, total_municipio))
     try(rm(df, total_municipio))
+    cli::cli_h2(paste0('Agregado por Município arquivo ', length(i),'/', length(listaCSV)))
   }
 
   valor_estado$Ano <- stringr::str_sub(valor_estado$mes_competencia, start= 1, end = 4)
