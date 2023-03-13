@@ -10,17 +10,12 @@ HEIGHT_FILE <- 7.75
 WIDTH_FILE <- 9
 MESSAGE_DURATION <- 20
 
-pasta = folder
-pastaOutputs <- paste0(pasta, '/outputs')
-
 # -- Estados
-pbf_estados_df <-
-  readRDS(paste0(pastaOutputs, '/pbf_estados_df_geo.rds'))
+pbf_estados_df <- readRDS('~/teste3/outputs/pbf_estados_df_geo.rds')
 
 # -- Municipios
 
-pbf_municipios_df <-
-  readRDS(paste0(pastaOutputs, '/pbf_municipios_geo.rds'))
+pbf_municipios_df <- readRDS('~/teste3/outputs/pbf_municipios_geo.rds')
 
 ui <- shiny::fluidPage(
   tags$head(
@@ -99,9 +94,8 @@ ui <- shiny::fluidPage(
         ),
         shiny::tabPanel(
           "Estado/Ano",
-          shiny::fluidRow(shiny::column(
-            12,
-            DT::dataTableOutput("tabelaTotalEstado")
+          shiny::fluidRow(shiny::column(12,
+                                        DT::dataTableOutput("tabelaTotalEstado")
           )),
           shiny::br(),
           shiny::fluidRow(
@@ -410,76 +404,32 @@ server <- function(input, output, session) {
              textRound,
              textDigits,
              title,
-             subtitle) {
-      ggplot2::ggplot({
-        {
-          data
-        }
-      },
-      ggplot2::aes(x = Ano, y = {
-        {
-          var
-        }
-      }, fill = {
-        {
-          var
-        }
-      })) +
+             subtitle
+    ) {
+      ggplot2::ggplot(
+        {{data}},
+        ggplot2::aes(x = Ano, y = {{var}}, fill = {{var}})
+      ) +
         ggplot2::geom_col() +
         viridis::scale_fill_viridis(
-          name = {
-            {
-              nomeEscala
-            }
-          },
+          name = {{nomeEscala}},
           discrete = F,
-          labels = scales::comma_format(# big.mark = ",",
+          labels = scales::comma_format(
+            # big.mark = ",",
             decimal.mark = "."),
           option = escalaCores,
           direction = -1
         ) +
-        ggplot2::scale_y_continuous(limits = c({
-          {
-            min
-          }
-        }, {
-          {
-            max
-          }
-        }),
-        oob = scales::rescale_none) +
-        ggplot2::geom_text(ggplot2::aes(label = format(round({
-          {
-            var
-          }
-        }, {
-          {
-            textRound
-          }
-        }), nsmall = {
-          {
-            textDigits
-          }
-        })),
-        vjust = -0.5) +
+        ggplot2::scale_y_continuous(limits = c({{min}}, {{max}}),
+                                    oob = scales::rescale_none) +
+        ggplot2::geom_text(ggplot2::aes(label = format(round({{var}}, {{textRound}}), nsmall = {{textDigits}})),
+                           vjust = -0.5) +
         ggplot2::labs(
-          title = {
-            {
-              title
-            }
-          },
-          subtitle = {
-            {
-              subtitle
-            }
-          },
+          title = {{title}},
+          subtitle = {{subtitle}},
           # caption = "Fonte: www.portaldatransparencia.gov.br",
           x = '',
-          y = sprintf('%s 2021', {
-            {
-              nomeEscala
-            }
-          })
+          y = sprintf('%s 2021', {{nomeEscala}})
         ) +
         ggplot2::theme(
           panel.background = ggplot2::element_blank(),
@@ -507,23 +457,19 @@ server <- function(input, output, session) {
 
   output$colunasPbfPerBenefAnual <-
     shiny::renderPlot(
-      grafBarras_por_Anos(
-        data = dataAnual() |>
-          dplyr::mutate(
-            `R$ Ajustados 2021 por Beneficiário` = round(
-              `Bilhões R$ Ajustados 2021` * 1e9 / `Nº Médio Beneficiários` / 1000,
-              2
-            )
-          ),
-        var = `R$ Ajustados 2021 por Beneficiário`,
-        escalaCores = input$selectPorBenefColours,
-        nomeEscala = "KR$",
-        min = 0.17,
-        max = 3.7,
-        textRound = 2,
-        textDigits =  2,
-        title = 'PBF/Auxílio Brasil Total Anual por Beneficiário',
-        subtitle = 'Milhares de R$ Ajustados 2021'
+      grafBarras_por_Anos(data = dataAnual() |>
+                            dplyr::mutate(
+                              `R$ Ajustados 2021 por Beneficiário` = round(`Bilhões R$ Ajustados 2021` * 1e9 / `Nº Médio Beneficiários` / 1000, 2)
+                            ),
+                          var = `R$ Ajustados 2021 por Beneficiário`,
+                          escalaCores = input$selectPorBenefColours,
+                          nomeEscala = "KR$",
+                          min = 0.17,
+                          max = 3.7,
+                          textRound = 2,
+                          textDigits =  2,
+                          title = 'PBF/Auxílio Brasil Total Anual por Beneficiário',
+                          subtitle = 'Milhares de R$ Ajustados 2021'
       ),
       height = HEIGHT,
       width = WIDTH
@@ -600,55 +546,34 @@ server <- function(input, output, session) {
   )
 
   # Colunas da aba 'Estado / Ano'
-  grafBarrasAnoEstado <- function(data,
-                                  var,
-                                  min,
-                                  max,
-                                  escalaCores,
-                                  nomeEscala,
-                                  textRound,
-                                  textDigits,
-                                  title,
-                                  subtitle) {
-    ggplot2::ggplot(data,
-                    ggplot2::aes(
-                      x = factor(UF) |>
-                        forcats::fct_reorder({
-                          {
-                            var
-                          }
-                        }, .desc = TRUE),
-                      y = {
-                        {
-                          var
-                        }
-                      },
-                      fill = {
-                        {
-                          var
-                        }
-                      }
-                    )) +
+  grafBarrasAnoEstado <- function(
+    data,
+    var,
+    min,
+    max,
+    escalaCores,
+    nomeEscala,
+    textRound,
+    textDigits,
+    title,
+    subtitle) {
+
+    ggplot2::ggplot(
+      data,
+      ggplot2::aes(
+        x = factor(UF) |>
+          forcats::fct_reorder({{var}}, .desc = TRUE),
+        y = {{var}},
+        fill = {{var}}
+      )) +
       ggplot2::geom_col() +
 
       ggplot2::scale_y_continuous(limits = c(min,
                                              max),
                                   oob = scales::rescale_none) +
-      ggplot2::geom_text(ggplot2::aes(label = format(round({
-        {
-          var
-        }
-      }, {
-        {
-          textRound
-        }
-      }), nsmall = {
-        {
-          textDigits
-        }
-      })),
-      vjust = -0.5,
-      size = 2.5) +
+      ggplot2::geom_text(ggplot2::aes(label = format(round({{var}}, {{textRound}}), nsmall = {{textDigits}})),
+                         vjust = -0.5,
+                         size = 2.5) +
       ggplot2::theme(
         panel.background = ggplot2::element_blank(),
         panel.grid.major = ggplot2::element_line('black', linewidth = 0.04, linetype = 'dashed'),
@@ -661,28 +586,16 @@ server <- function(input, output, session) {
       viridis::scale_fill_viridis(
         name = nomeEscala,
         discrete = F,
-        labels = scales::comma_format(big.mark = ".",
-                                      decimal.mark = ","),
+        labels = scales::comma_format(
+          big.mark = ".",
+          decimal.mark = ","),
         option = escalaCores,
-        direction = -1
-      ) +
+        direction = -1) +
       ggplot2::labs(
-        title = {
-          {
-            title
-          }
-        },
-        subtitle = {
-          {
-            subtitle
-          }
-        },
+        title = {{title}},
+        subtitle = {{subtitle}},
         x = '',
-        y = sprintf('%s 2021', {
-          {
-            nomeEscala
-          }
-        })
+        y = sprintf('%s 2021', {{nomeEscala}})
       )
 
   }
@@ -731,10 +644,7 @@ server <- function(input, output, session) {
         max = 39,
         textRound = 1,
         textDigits =  1,
-        title = sprintf(
-          'PBF/Auxílio Brasil Total %s por Beneficiário',
-          input$selectAno
-        ),
+        title = sprintf('PBF/Auxílio Brasil Total %s por Beneficiário', input$selectAno),
         subtitle = 'Milhares de R$ Ajustados 2021'
       )
     } else {
@@ -748,10 +658,7 @@ server <- function(input, output, session) {
         max = 4.2,
         textRound = 1,
         textDigits =  1,
-        title = sprintf(
-          'PBF/Auxílio Brasil Total %s por Beneficiário',
-          input$selectAno
-        ),
+        title = sprintf('PBF/Auxílio Brasil Total %s por Beneficiário', input$selectAno),
         subtitle = 'Milhares de R$ Ajustados 2021'
       )
     },
@@ -769,10 +676,7 @@ server <- function(input, output, session) {
         max = 50,
         textRound = 1,
         textDigits =  1,
-        title = sprintf(
-          'PBF/Auxílio Brasil Total %s Valores Absolutos ',
-          input$selectAno
-        ),
+        title = sprintf('PBF/Auxílio Brasil Total %s Valores Absolutos ', input$selectAno),
         subtitle = 'Bilhões de R$ Ajustados 2021'
       )
     } else {
@@ -785,10 +689,7 @@ server <- function(input, output, session) {
         max = 7,
         textRound = 1,
         textDigits =  1,
-        title = sprintf(
-          'PBF/Auxílio Brasil Total %s Valores Absolutos ',
-          input$selectAno
-        ),
+        title = sprintf('PBF/Auxílio Brasil Total %s Valores Absolutos ', input$selectAno),
         subtitle = 'Bilhões de R$ Ajustados 2021'
       )
     },
@@ -817,8 +718,10 @@ server <- function(input, output, session) {
         direction = -1
       ) +
       ggplot2::labs(
-        title = sprintf('Total %s PBF e Auxílio Brasil per Capita',
-                        input$selectAno),
+        title = sprintf(
+          'Total %s PBF e Auxílio Brasil per Capita',
+          input$selectAno
+        ),
         x = '',
         y = 'KR$ 2021',
         subtitle = "R$ Ajustados 2021"
@@ -832,7 +735,8 @@ server <- function(input, output, session) {
 
   output$mapaPbfPerCapita <- shiny::renderPlot(mapaPbfPerCapita(),
                                                height = HEIGHT,
-                                               width = WIDTH)
+                                               width = WIDTH
+  )
 
   mapaPbfPorBenef <- function() {
     ggplot2::ggplot() +
@@ -999,12 +903,10 @@ server <- function(input, output, session) {
         ggplot2::theme(
           panel.background = ggplot2::element_blank(),
           panel.grid.major = ggplot2::element_line('black', linewidth = 0.02, linetype = 'dashed'),
-          axis.text.x = ggplot2::element_text(
-            angle = 90,
-            vjust = 0.5,
-            hjust = 1
-          )
-        ) +
+          axis.text.x = ggplot2::element_text(angle = 90,
+                                              vjust = 0.5,
+                                              hjust = 1
+          )) +
         viridis::scale_fill_viridis(
           name = "KR$",
           discrete = F,
@@ -1052,12 +954,9 @@ server <- function(input, output, session) {
         ggplot2::theme(
           panel.background = ggplot2::element_blank(),
           panel.grid.major = ggplot2::element_line('black', linewidth = 0.04, linetype = 'dashed'),
-          axis.text.x = ggplot2::element_text(
-            angle = 90,
-            vjust = 0.5,
-            hjust = 1
-          )
-        ) +
+          axis.text.x = ggplot2::element_text(angle = 90,
+                                              vjust = 0.5,
+                                              hjust = 1)) +
         viridis::scale_fill_viridis(
           name = "KR$",
           discrete = F,
@@ -1168,12 +1067,9 @@ server <- function(input, output, session) {
         ggplot2::theme(
           panel.background = ggplot2::element_blank(),
           panel.grid.major = ggplot2::element_line('black', linewidth = 0.04, linetype = 'dashed'),
-          axis.text.x = ggplot2::element_text(
-            angle = 90,
-            vjust = 0.5,
-            hjust = 1
-          )
-        ) +
+          axis.text.x = ggplot2::element_text(angle = 90,
+                                              vjust = 0.5,
+                                              hjust = 1)) +
         viridis::scale_fill_viridis(
           name = "KR$",
           discrete = F,
@@ -1363,8 +1259,7 @@ server <- function(input, output, session) {
       ) +
       ggplot2::theme(
         panel.background = ggplot2::element_blank(),
-        panel.grid.major = ggplot2::element_line('black', linewidth = 0.04, linetype = 'dashed')
-      )
+        panel.grid.major = ggplot2::element_line('black', linewidth = 0.04, linetype = 'dashed'))
   }
 
   output$mapaPbfPerCapitaMun <-
@@ -1409,8 +1304,7 @@ server <- function(input, output, session) {
       ) +
       ggplot2::theme(
         panel.background = ggplot2::element_blank(),
-        panel.grid.major = ggplot2::element_line('black', linewidth = 0.04, linetype = 'dashed')
-      )
+        panel.grid.major = ggplot2::element_line('black', linewidth = 0.04, linetype = 'dashed'))
   }
 
   output$mapaPbfPerBenefMun <-
@@ -1455,8 +1349,7 @@ server <- function(input, output, session) {
       ) +
       ggplot2::theme(
         panel.background = ggplot2::element_blank(),
-        panel.grid.major = ggplot2::element_line('black', linewidth = 0.04, linetype = 'dashed')
-      )
+        panel.grid.major = ggplot2::element_line('black', linewidth = 0.04, linetype = 'dashed'))
 
   }
 
@@ -1482,18 +1375,16 @@ server <- function(input, output, session) {
       paste("pBF_auxBr_Dados_2013-2022.xlsx")
     },
     content = function(filename) {
-      writexl::write_xlsx(
-        list(
-          'por Anos' = dataAnual(),
-          'por Estados' =  pbf_estados_df |>
-            dplyr::select(-10) |>
-            dplyr::mutate(valor = valor * 1e9,
-                          inflac2021 = inflac2021 * 1e9),
-          'por Municípios' = pbf_municipios_df |>
-            dplyr::select(-11)
-        ),
-        filename
-      )
+      writexl::write_xlsx(list(
+        'por Anos' = dataAnual(),
+        'por Estados' =  pbf_estados_df |>
+          dplyr::select(-10) |>
+          dplyr::mutate(valor = valor * 1e9,
+                        inflac2021 = inflac2021 * 1e9),
+        'por Municípios' = pbf_municipios_df |>
+          dplyr::select(-11)
+      ),
+      filename)
     }
   )
 
@@ -1502,10 +1393,8 @@ server <- function(input, output, session) {
       paste("Graficos_pBF_auxBr.zip", sep = "")
     },
     content = function(filename) {
-      shiny::showNotification(
-        "Preparando os gráficos em alta resolução: Aguarde um pouco que o download já começará!",
-        duration = MESSAGE_DURATION
-      )
+      shiny::showNotification("Preparando os gráficos em alta resolução: Aguarde um pouco que o download já começará!",
+                              duration = MESSAGE_DURATION)
 
       temp_dir = tempdir()
       unlink(paste0(temp_dir, '/*'), recursive = TRUE)
@@ -1538,23 +1427,19 @@ server <- function(input, output, session) {
       ggplot2::ggsave(
         paste0(temp_dir,
                '/grafBarras_PorBenef_por_Anos.png'),
-        plot = grafBarras_por_Anos(
-          data = dataAnual() |>
-            dplyr::mutate(
-              `R$ Ajustados 2021 por Beneficiário` = round(
-                `Bilhões R$ Ajustados 2021` * 1e9 / `Nº Médio Beneficiários` / 1000,
-                2
-              )
-            ),
-          var = `R$ Ajustados 2021 por Beneficiário`,
-          escalaCores = input$selectPorBenefColours,
-          nomeEscala = "KR$",
-          min = 0.17,
-          max = 3.7,
-          textRound = 2,
-          textDigits =  2,
-          title = 'PBF/Auxílio Brasil Total Anual por Beneficiário',
-          subtitle = 'Milhares de R$ Ajustados 2021'
+        plot = grafBarras_por_Anos(data = dataAnual() |>
+                                     dplyr::mutate(
+                                       `R$ Ajustados 2021 por Beneficiário` = round(`Bilhões R$ Ajustados 2021` * 1e9 / `Nº Médio Beneficiários` / 1000, 2)
+                                     ),
+                                   var = `R$ Ajustados 2021 por Beneficiário`,
+                                   escalaCores = input$selectPorBenefColours,
+                                   nomeEscala = "KR$",
+                                   min = 0.17,
+                                   max = 3.7,
+                                   textRound = 2,
+                                   textDigits =  2,
+                                   title = 'PBF/Auxílio Brasil Total Anual por Beneficiário',
+                                   subtitle = 'Milhares de R$ Ajustados 2021'
         ),
         width = WIDTH_FILE,
         height = HEIGHT_FILE,
@@ -1646,10 +1531,7 @@ server <- function(input, output, session) {
             max = 39,
             textRound = 1,
             textDigits =  1,
-            title = sprintf(
-              'PBF/Auxílio Brasil Total %s por Beneficiário',
-              input$selectAno
-            ),
+            title = sprintf('PBF/Auxílio Brasil Total %s por Beneficiário', input$selectAno),
             subtitle = 'Milhares de R$ Ajustados 2021'
           )
         } else {
@@ -1663,10 +1545,7 @@ server <- function(input, output, session) {
             max = 4.2,
             textRound = 1,
             textDigits =  1,
-            title = sprintf(
-              'PBF/Auxílio Brasil Total %s por Beneficiário',
-              input$selectAno
-            ),
+            title = sprintf('PBF/Auxílio Brasil Total %s por Beneficiário', input$selectAno),
             subtitle = 'Milhares de R$ Ajustados 2021'
           )
         }
@@ -1689,10 +1568,7 @@ server <- function(input, output, session) {
             max = 50,
             textRound = 1,
             textDigits =  1,
-            title = sprintf(
-              'PBF/Auxílio Brasil Total %s Valores Absolutos ',
-              input$selectAno
-            ),
+            title = sprintf('PBF/Auxílio Brasil Total %s Valores Absolutos ', input$selectAno),
             subtitle = 'Bilhões de R$ Ajustados 2021'
           )
         } else {
@@ -1705,10 +1581,7 @@ server <- function(input, output, session) {
             max = 7,
             textRound = 1,
             textDigits =  1,
-            title = sprintf(
-              'PBF/Auxílio Brasil Total %s Valores Absolutos ',
-              input$selectAno
-            ),
+            title = sprintf('PBF/Auxílio Brasil Total %s Valores Absolutos ', input$selectAno),
             subtitle = 'Bilhões de R$ Ajustados 2021'
           )
         },
@@ -1751,12 +1624,7 @@ server <- function(input, output, session) {
       shiny::showNotification("Preparando Gráfico 9... ",
                               duration = MESSAGE_DURATION)
       ggplot2::ggsave(
-        paste0(
-          temp_dir,
-          '/mapaEstadosValoresAbsolutos_',
-          input$selectAno,
-          '.png'
-        ),
+        paste0(temp_dir, '/mapaEstadosValoresAbsolutos_', input$selectAno, '.png'),
         plot = mapaTotalEstado(),
         width = WIDTH_FILE,
         height = HEIGHT_FILE,
@@ -1766,12 +1634,10 @@ server <- function(input, output, session) {
       shiny::showNotification("Preparando Gráfico 10... ",
                               duration = MESSAGE_DURATION)
       ggplot2::ggsave(
-        paste0(
-          temp_dir,
-          '/barrasMunicipiosPerCapita_',
-          input$selectAno,
-          '.png'
-        ),
+        paste0(temp_dir,
+               '/barrasMunicipiosPerCapita_',
+               input$selectAno,
+               '.png'),
         plot = colPbfPerCapitaMun(),
         width = WIDTH_FILE,
         height = HEIGHT_FILE,
@@ -1781,12 +1647,10 @@ server <- function(input, output, session) {
       shiny::showNotification("Preparando Gráfico 11... ",
                               duration = MESSAGE_DURATION)
       ggplot2::ggsave(
-        paste0(
-          temp_dir,
-          '/barrasMunicipiosPorBenef_',
-          input$selectAno,
-          '.png'
-        ),
+        paste0(temp_dir,
+               '/barrasMunicipiosPorBenef_',
+               input$selectAno,
+               '.png'),
         plot = colPbfPerBenefMun(),
         width = WIDTH_FILE,
         height = HEIGHT_FILE,
@@ -1796,12 +1660,10 @@ server <- function(input, output, session) {
       shiny::showNotification("Preparando Gráfico 12... ",
                               duration = MESSAGE_DURATION)
       ggplot2::ggsave(
-        paste0(
-          temp_dir,
-          '/barrasMunicipiosValoresAbsolutos_',
-          input$selectAno,
-          '.png'
-        ),
+        paste0(temp_dir,
+               '/barrasMunicipiosValoresAbsolutos_',
+               input$selectAno,
+               '.png'),
         plot = colTotalMunicipio(),
         width = WIDTH_FILE,
         height = HEIGHT_FILE,
@@ -1811,12 +1673,10 @@ server <- function(input, output, session) {
       shiny::showNotification("Preparando Gráfico 13... ",
                               duration = MESSAGE_DURATION)
       ggplot2::ggsave(
-        paste0(
-          temp_dir,
-          '/mapasMunicipiosPerCapita_',
-          input$selectAno,
-          '.png'
-        ),
+        paste0(temp_dir,
+               '/mapasMunicipiosPerCapita_',
+               input$selectAno,
+               '.png'),
         plot = mapaPbfPerCapitaMun(),
         width = WIDTH_FILE,
         height = HEIGHT_FILE,
@@ -1826,12 +1686,10 @@ server <- function(input, output, session) {
       shiny::showNotification("Preparando Gráfico 14... ",
                               duration = MESSAGE_DURATION)
       ggplot2::ggsave(
-        paste0(
-          temp_dir,
-          '/mapasMunicipiosPorBenef_',
-          input$selectAno,
-          '.png'
-        ),
+        paste0(temp_dir,
+               '/mapasMunicipiosPorBenef_',
+               input$selectAno,
+               '.png'),
         plot = mapaPbfPerBenefMun(),
         width = WIDTH_FILE,
         height = HEIGHT_FILE,
@@ -1841,12 +1699,10 @@ server <- function(input, output, session) {
       shiny::showNotification("Preparando Gráfico 15... ",
                               duration = MESSAGE_DURATION)
       ggplot2::ggsave(
-        paste0(
-          temp_dir,
-          '/mapasMunicipiosValoresAbsolutos_',
-          input$selectAno,
-          '.png'
-        ),
+        paste0(temp_dir,
+               '/mapasMunicipiosValoresAbsolutos_',
+               input$selectAno,
+               '.png'),
         plot = mapaTotalMunicipio(),
         width = WIDTH_FILE,
         height = HEIGHT_FILE,
@@ -1861,4 +1717,6 @@ server <- function(input, output, session) {
   )
 }
 
-shiny::shinyApp(ui, server)
+appShiny_Passo4 <- function() {
+  shiny::shinyApp(ui, server)
+}
