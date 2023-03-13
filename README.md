@@ -1,5 +1,3 @@
-
-
 `GetPBFData` é um pacote em linguagem R que objetiva permitir acesso simplificado a dados públicos relativos aos pagamentos do Programa Bolsa Família (PBF) e também de seu substituto, o Auxílio Brasil. Todos os dados estão disponíveis totalmente livres pelo governo brasileiro, porém a forma em que se apresenta atualmente pode trazer desafios e bastante trabalho manual para quem deseja explorá-los a fundo, o que talvez até impossibilite pesquisas.
 
 Uma dificuldade é que os dados estão disponibilizados em arquivos zip contendo csv, em frequência mensal, com cada arquivo possuindo 14 milhões de linhas, ou seja, uma planilha que não é possível de ser aberta no Excel. Outra dificuldade é o tamanho dos arquivos que, além de precisarem ser baixados um a um no site oficial, são enormes: em Março de 2023, temos dados desde 2013 até Novembro de 2022, o que totalizam 180 gigas de dados em csv.
@@ -31,7 +29,6 @@ devtools::install_github('leonardochalhoub/getPBFData')
 folder <- '~/Dados_Bolsa_Familia_Aux_Brasil'
 
 getPBFData::downloadData_Passo1(pasta = folder)
-
 ```
 
 ## Passo 2: Processamento dos Dados e Summarising para Municípios, Estados, Anos e Meses
@@ -40,7 +37,6 @@ No final desta etapa, que também pode demorar algumas horas, são gerados arqui
 
 ```{r}
 getPBFData::dataPrep_Passo2(pasta = folder)
-
 ```
 
 ## Passo 3: Pós-Processamento
@@ -49,14 +45,12 @@ Já temos dados mais fáceis de manusear disponíveis nesta etapa. Aqui agrego m
 
 ```r
 getPBFData::postProc_Passo3(pasta = folder)
-
 ```
 
 ## Passo 4: Visualizando os dados num Web App em Shiny
 
 ```r
 getPBFData::shinyApp_Passo4(pasta = folder)
-
 ```
 
 

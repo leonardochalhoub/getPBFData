@@ -25,7 +25,7 @@ downloadData_Passo1 <-  function(pasta) {
     "2013", "2014", "2015",
     "2016", "2017", "2018",
     "2019", "2020", "2021",
-    "2023", "2024", "2025"
+    "2023"
   )
 
   lista_anos_Aux_Br = c("2021", "2022", "2023")
@@ -57,6 +57,8 @@ downloadData_Passo1 <-  function(pasta) {
   }
 
   # Download dados Auxílio Brasil de Novembro de 2021 até Novembro de 2022.
+  cli::cli_h2(paste0('Início da descompressão dos arquivos.'))
+  cli::cli_h2(paste0('Essa etapa pode demorar mais de uma hora...'))
 
   for (i in lista_anos_Aux_Br) {
     for (j in lista_meses) {
@@ -82,8 +84,10 @@ downloadData_Passo1 <-  function(pasta) {
   }
 
   if (length(listaCSV) == 0) {
-    plyr::ldply(.data = listaZipFiles, .fun = unzip, exdir = pastaCSV)
+    plyr::ldply(.data = cli::cli_progress_along(listaZipFiles), .fun = unzip, exdir = pastaCSV)
   } else {
     print(sprintf("Já existem %s arquivos CSV na pasta.", length(listaCSV)))
   }
+  cli::cli_alert_success("Descompressão 100% completa com sucesso!")
+  cli::cli_alert_success("Todos os arquivos CSV estão na pasta /data.")
 }
