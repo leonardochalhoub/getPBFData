@@ -24,7 +24,7 @@ dataPrep <- function(pasta) {
 
   for (i in listaCSV) {
     j <- 1
-    cli::cli_h1('Iniciando leitura do arquivo ', i)
+    cli::cli_h1(sprintf('Iniciando leitura do arquivo %s', i))
     df <- try(
       readr::read_csv2(file = i,
                        col_names = TRUE,
