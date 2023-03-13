@@ -50,7 +50,7 @@ downloadData <-  function(pastaOrigem, pastaCSV, pastaOutputs) {
       )
       full_url <- paste0(base_url, i, j)
       options(timeout=200)
-      destfile_pre =  paste0('source_data/PBF_', i, '_', j, '.zip')
+      destfile_pre =  paste0(pastaOrigem, '/PBF_', i, '_', j, '.zip')
       if (file.exists(destfile_pre)) {
         return
       } else {
@@ -75,7 +75,7 @@ downloadData <-  function(pastaOrigem, pastaCSV, pastaOutputs) {
       )
       full_url <- paste0(base_url, i, j)
       options(timeout=200)
-      destfile_pre =  paste0('source_data/Aux_Br_', i, '_', j, '.zip')
+      destfile_pre =  paste0(pastaOrigem, '/Aux_Br_', i, '_', j, '.zip')
       if (file.exists(destfile_pre)) {
         return
       } else {
