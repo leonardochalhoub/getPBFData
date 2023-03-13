@@ -10,7 +10,7 @@ ajusteNov2021 <- function(pasta) {
   ajuste_nov_2021 <-  readr::read_csv2(file = paste0(pastaCSV, '/202111_BolsaFamilia_Pagamentos.csv'),
                                        col_names = TRUE,
                                        locale = readr::locale(encoding="latin1"),
-                                       progress = readr::show_progress()) %>%
+                                       progress = readr::show_progress()) |>
     dplyr::rename('MÊS COMPETÊNCIA' = `MÊS REFERÊNCIA`, 'MÊS REFERÊNCIA' = `MÊS COMPETÊNCIA`)
   print('Iniciou escrita: utils::write.csv2(...')
 
