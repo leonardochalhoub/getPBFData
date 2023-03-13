@@ -1,9 +1,8 @@
 #' @export
 
-dataPrep <- function(pasta) {
+dataPrep_Passo2 <- function(pasta) {
 
-  listOfPackages <- c("janitor",
-                      "dplyr", "stringr")
+  listOfPackages <- c("dplyr", "stringr", "janitor")
 
   for(package in listOfPackages){
     if(!require(package, character.only = TRUE)){
@@ -25,7 +24,7 @@ dataPrep <- function(pasta) {
   j <- 1
 
   for (i in listaCSV) {
-    cli::cli_h1(paste0('Iniciando leitura do arquivo %s', i, ' . Arquivo ', j, '/', length(listaCSV)))
+    cli::cli_h1(paste0('Iniciando leitura do arquivo ', j, '/', length(listaCSV), ' ', i))
     df <- try(
       readr::read_csv2(file = i,
                        col_names = TRUE,
@@ -74,8 +73,7 @@ dataPrep <- function(pasta) {
     dplyr::arrange(uf, nome_municipio, Ano, Mes)
 
   saveRDS(valor_municipio, file = paste0(pastaOutputs, "/total_ano_mes_municipio.rds"))
+
   cli::cli_alert_success("Agregado por Muncípio, Estado, Ano e Mês: OK")
-
   cli::cli_alert_success("2 Arquivos Armazenados em /outputs no formato RDS")
-
 }

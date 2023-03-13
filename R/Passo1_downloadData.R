@@ -1,6 +1,6 @@
 #' @export
 
-downloadData <-  function(pasta) {
+downloadData_Passo1 <-  function(pasta) {
 
   pastaOrigem <-  paste0(pasta, '/source_data')
   pastaCSV <- paste0(pasta, '/data')
