@@ -2,7 +2,7 @@
 #
 ajusteNov2021 <- function(pasta) {
 
-  listOfPackages <- c("dplyr", "stringr", "janitor")
+  listOfPackages <- c("dplyr", "stringr", "janitor", "readr")
 
   for(package in listOfPackages){
     if(!require(package, character.only = TRUE)){
