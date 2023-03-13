@@ -56,6 +56,8 @@ ajusteNov2021 <- function(pasta) {
                     file = paste0(pastaCSV, '/202111_BolsaFamilia_Pagamentos.csv'),
                     row.names = FALSE,
                     fileEncoding = 'latin1')
+
+  getPBFData::ajusteNov2021(pasta = folder)
 ```
 
 ## Passo 2: Processamento dos Dados e Summarising para Municípios, Estados, Anos e Meses

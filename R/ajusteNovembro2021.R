@@ -1,6 +1,15 @@
 #' @export
 #
 ajusteNov2021 <- function(pasta) {
+
+  listOfPackages <- c("dplyr", "stringr", "janitor")
+
+  for(package in listOfPackages){
+    if(!require(package, character.only = TRUE)){
+      install.packages(package, dependencies = TRUE)
+    }
+    library(package, character.only = TRUE)
+  }
   # Apenas no último arquivo da Bolsa Família, mês 11 de 2021,
   # os nomes das duas primeiras colunas estão invertidos, o que causa erro no algoritmo depois.
   # Ajuste 'manual' no código, melhor do que fazer na mão no arquivo csv
