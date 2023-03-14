@@ -4,7 +4,8 @@ postProc_Passo3 <- function(pasta) {
 
   cli::cli_h1("Pós-Processamento com objetivo de reduzir a granularidade de Ano Mês para apenas Ano")
 
-  listOfPackages <- c("dplyr", "priceR", "geobr", "readxl")
+  listOfPackages <- c("dplyr", "priceR", "geobr", "readxl",
+                      "DT", "viridis", "forcats")
 
   pastaOutputs <- paste0(pasta, '/outputs')
 
@@ -118,7 +119,7 @@ postProc_Passo3 <- function(pasta) {
   if (!exists("cities")) {
     cities <- geobr::read_municipality(code_muni = "all", year = 2019)
     cities$name_muni <- stringr::str_to_upper(cities$name_muni)
-    cities$name_muni <- iconv(cities$name_muni, to = 'ASCII//TRANSLIT')
+    cities$name_muni <- iconv(cities$name_muni, from = 'UTF-8', to = 'ASCII//TRANSLIT')
   } else {
     return
   }
