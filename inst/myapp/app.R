@@ -1,5 +1,15 @@
 library(sf) # Se não carregar a sf, a interpretação da coluna geom não funciona e atrapalha todo o resto.
 
+listOfPackages <- c("viridis", "DT", "forcats",
+                    "writexl")
+
+for(package in listOfPackages){
+  if(!require(package, character.only = TRUE)){
+    install.packages(package, dependencies = TRUE)
+  }
+  library(package, character.only = TRUE)
+}
+
 OFFSET <- 2
 HEIGHT <- 300
 WIDTH <- 400
