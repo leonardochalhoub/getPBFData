@@ -5,7 +5,7 @@ postProc_Passo3 <- function(pasta) {
   cli::cli_h1("Pós-Processamento com objetivo de reduzir a granularidade de Ano Mês para apenas Ano")
 
   listOfPackages <- c("dplyr", "priceR", "geobr", "readxl",
-                      "DT", "viridis", "forcats", 'openxlsx')
+                      "DT", "viridis", "forcats")
 
   pastaOutputs <- paste0(pasta, '/outputs')
 
@@ -18,7 +18,7 @@ postProc_Passo3 <- function(pasta) {
 
   populacao_estados <- openxlsx::read.xlsx('arquivos_aux/populacao.xlsx',
                                          sheet = 'Estados') |>
-    tidyr::pivot_longer(cols = 3:13,
+    tidyr::pivot_longer(cols = 3:12,
                         names_to = 'Ano',
                         values_to = 'populacao')
   pbf_estados_df <-
@@ -78,7 +78,7 @@ postProc_Passo3 <- function(pasta) {
   populacao_municipios <-
     readxl::read_xlsx('arquivos_aux/populacao.xlsx',
                       sheet = 'Municipios') |>
-    tidyr::pivot_longer(cols = 3:13,
+    tidyr::pivot_longer(cols = 3:12,
                         names_to = 'Ano',
                         values_to = 'populacao')
 

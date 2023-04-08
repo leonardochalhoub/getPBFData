@@ -1,7 +1,7 @@
 library(sf) # Se não carregar a sf, a interpretação da coluna geom não funciona e atrapalha todo o resto.
 
-listOfPackages <- c("viridis", "forcats",
-                    "writexl", "devtools")
+listOfPackages <- c("viridis", "DT", "forcats",
+                    "writexl")
 
 for(package in listOfPackages){
   if(!require(package, character.only = TRUE)){
@@ -9,8 +9,6 @@ for(package in listOfPackages){
   }
   library(package, character.only = TRUE)
 }
-remove.packages("DT")
-devtools::install_github("rstudio/DT")
 
 OFFSET <- 2
 HEIGHT <- 300
@@ -43,7 +41,7 @@ ui <- shiny::fluidPage(
   # shinythemes::themeSelector(),
   theme = bslib::bs_theme(bootswatch = "flatly"),
 
-  shiny::titlePanel("Dados Bolsa Família e Auxílio Brasil Jan/2013 a Fev/2023"),
+  shiny::titlePanel("Dados Bolsa Família e Auxílio Brasil Jan/2013 a Nov/2022"),
   shiny::sidebarLayout(
     shiny::sidebarPanel(
       width = 2,
@@ -75,7 +73,7 @@ ui <- shiny::fluidPage(
         "selectAno",
         "Ano ou Agregado",
         choices = unique(pbf_estados_df$Ano),
-        selected = "Agregado 2013-2023",
+        selected = "Agregado 2013-2022",
         multiple = FALSE
       ),
       shiny::downloadButton("downloadDataAnual", "Dados em Excel"),
@@ -194,9 +192,9 @@ ui <- shiny::fluidPage(
                             shiny::h6(
                               paste0(
                                 'Dados do Auxílio Brasil, disponíveis em frequência mensal de Novembro de 2021 ',
-                                'até Fevereiro de 2023, em arquivos exatamente iguais em estrutura aos do Bolsa Família.',
-                                'No total, todos os arquivos ainda comprimidos totalizam 4,8 gigas. Ao descomprimi-los, os arquivos ',
-                                'em formato csv restantes totalizam ~30 gigas. Link:'
+                                'até Novembro de 2022, em arquivos exatamente iguais em estrutura aos do Bolsa Família.',
+                                'No total, todos os arquivos ainda comprimidos totalizam 3,8 gigas. Ao descomprimi-los, os arquivos ',
+                                'em formato csv restantes totalizam 23,8 gigas. Link:'
                               )
                             ),
                             shiny::h6(
@@ -348,7 +346,7 @@ ui <- shiny::fluidPage(
                             shiny::h6('E-mail: leochalhoub@hotmail.com'),
                             shiny::h6('LinkedIn: https://www.linkedin.com/in/leonardochalhoub/'),
                             shiny::br(),
-                            shiny::h6('Última atualização em Abril de 2023.'),
+                            shiny::h6('Última atualização em Março de 2023.'),
                             shiny::br()
                           )
                         ))
@@ -363,7 +361,7 @@ server <- function(input, output, session) {
   # Server Tabela e Gráficos da Aba "Agregado Anos"
   dataAnual <- shiny::reactive({
     pbf_estados_df |>
-      dplyr::filter(!(Ano == 'Agregado 2013-2023')) |>
+      dplyr::filter(!(Ano == 'Agregado 2013-2022')) |>
       dplyr::group_by(Ano) |>
       dplyr::summarise(
         n_benef = round(sum(n_benef, na.rm = TRUE), 0),
@@ -615,7 +613,7 @@ server <- function(input, output, session) {
   }
 
   output$colPbfPerCapitaEstadual <-
-    shiny::renderPlot(if (input$selectAno == 'Agregado 2013-2023') {
+    shiny::renderPlot(if (input$selectAno == 'Agregado 2013-2022') {
       grafBarrasAnoEstado(
         data = dataAnoEstado() |>
           dplyr::mutate(`R$ Ajustados 2021 per Capita` = `R$ Ajustados 2021 per Capita` / 1000),
@@ -647,7 +645,7 @@ server <- function(input, output, session) {
     width = WIDTH)
 
   output$colunasAnoEstadoPbfPerBenef <-
-    shiny::renderPlot(if (input$selectAno == 'Agregado 2013-2023') {
+    shiny::renderPlot(if (input$selectAno == 'Agregado 2013-2022') {
       grafBarrasAnoEstado(
         data = dataAnoEstado() |>
           dplyr::mutate(`R$ Ajustados 2021 por Beneficiário` = `R$ Ajustados 2021 por Beneficiário` / 1000),
@@ -680,7 +678,7 @@ server <- function(input, output, session) {
     width = WIDTH)
 
   output$colunasTotalEstadoPorAno <-
-    shiny::renderPlot(if (input$selectAno == 'Agregado 2013-2023') {
+    shiny::renderPlot(if (input$selectAno == 'Agregado 2013-2022') {
       grafBarrasAnoEstado(
         data = dataAnoEstado(),
         var = `Bilhões R$ Ajustados 2021`,
@@ -890,7 +888,7 @@ server <- function(input, output, session) {
   # Colunas para aba 'Município / Ano
 
   colPbfPerCapitaMun <- function() {
-    if (input$selectAno == 'Agregado 2013-2023') {
+    if (input$selectAno == 'Agregado 2013-2022') {
       ggplot2::ggplot(
         data = pbf_municipios_df |>
           dplyr::filter(Ano == input$selectAno) |>
@@ -1007,7 +1005,7 @@ server <- function(input, output, session) {
                       width = WIDTH)
 
   colPbfPerBenefMun <- function() {
-    if (input$selectAno == 'Agregado 2013-2023') {
+    if (input$selectAno == 'Agregado 2013-2022') {
       ggplot2::ggplot(
         data = pbf_municipios_df_2 <- pbf_municipios_df |>
           dplyr::filter(Ano == input$selectAno) |>
@@ -1122,7 +1120,7 @@ server <- function(input, output, session) {
 
 
   colTotalMunicipio <- function() {
-    if (input$selectAno == 'Agregado 2013-2023') {
+    if (input$selectAno == 'Agregado 2013-2022') {
       ggplot2::ggplot(
         data = pbf_municipios_df_2 <- pbf_municipios_df |>
           dplyr::filter(Ano == input$selectAno) |>
@@ -1492,7 +1490,7 @@ server <- function(input, output, session) {
           input$selectAno,
           '.png'
         ),
-        plot = if (input$selectAno == 'Agregado 2013-2023') {
+        plot = if (input$selectAno == 'Agregado 2013-2022') {
           grafBarrasAnoEstado(
             data = dataAnoEstado() |>
               dplyr::mutate(`R$ Ajustados 2021 per Capita` = `R$ Ajustados 2021 per Capita` / 1000),
@@ -1534,7 +1532,7 @@ server <- function(input, output, session) {
           input$selectAno,
           '.png'
         ),
-        plot = if (input$selectAno == 'Agregado 2013-2023') {
+        plot = if (input$selectAno == 'Agregado 2013-2022') {
           grafBarrasAnoEstado(
             data = dataAnoEstado() |>
               dplyr::mutate(`R$ Ajustados 2021 por Beneficiário` = `R$ Ajustados 2021 por Beneficiário` / 1000),
@@ -1572,7 +1570,7 @@ server <- function(input, output, session) {
                '/mapaTotal_Estados_',
                input$selectAno,
                '.png'),
-        plot = if (input$selectAno == 'Agregado 2013-2023') {
+        plot = if (input$selectAno == 'Agregado 2013-2022') {
           grafBarrasAnoEstado(
             data = dataAnoEstado(),
             var = `Bilhões R$ Ajustados 2021`,
