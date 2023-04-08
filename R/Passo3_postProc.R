@@ -60,7 +60,7 @@ postProc_Passo3 <- function(pasta) {
       populacao = round(mean(populacao, na.rm = TRUE), 0),
       pbfPerBenef = round(inflac2021 * 1e9 / n_benef, 2),
       pbfPerCapita = round(inflac2021 * 1e9 / populacao, 2),
-      Ano = 'Agregado 2013-2022') |>
+      Ano = 'Agregado 2013-2023') |>
     dplyr::select(8, 1, 2, 3, 5, 4, 6, 7)
 
   pbf_estados_df <- pbf_estados_df |>
@@ -133,7 +133,7 @@ postProc_Passo3 <- function(pasta) {
       populacao = mean(populacao, na.rm = TRUE),
       pbfPerBenef = round(inflac2021 / n_benef, 2),
       pbfPerCapita = round(inflac2021 / populacao, 2),
-      Ano = 'Agregado 2013-2022'
+      Ano = 'Agregado 2013-2023'
     ) |>
     dplyr::select(9, 1, 2, 3, 4, 6, 5, 7, 8)
 
