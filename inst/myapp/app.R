@@ -1,5 +1,9 @@
 library(sf) # Se não carregar a sf, a interpretação da coluna geom não funciona e atrapalha todo o resto.
 
+remotes::install_github("jeroen/jsonlite", force = TRUE, upgrade = c("never"))
+remotes::install_github("ramnathv/htmlwidgets", force = TRUE, upgrade = c("never"))
+remotes::install_github("rstudio/DT", force = TRUE, upgrade = c("never"))
+
 listOfPackages <- c("viridis", "forcats",
                     "writexl", "devtools")
 
@@ -9,8 +13,10 @@ for(package in listOfPackages){
   }
   library(package, character.only = TRUE)
 }
-# remove.packages("DT")
-devtools::install_github("rstudio/DT",dependencies = TRUE, force = TRUE, upgrade = c("always"))
+remove.packages("DT")
+remove.packages("htmlwidgets")
+remove.packages("jsonlite")
+
 
 OFFSET <- 2
 HEIGHT <- 300
