@@ -1,6 +1,6 @@
 library(sf) # Se não carregar a sf, a interpretação da coluna geom não funciona e atrapalha todo o resto.
 
-listOfPackages <- c("viridis", "forcats",
+listOfPackages <- c("DT", "viridis", "forcats",
                     "writexl", "devtools")
 
 for(package in listOfPackages){
@@ -9,8 +9,8 @@ for(package in listOfPackages){
   }
   library(package, character.only = TRUE)
 }
-remove.packages("DT")
-devtools::install_github("rstudio/DT")
+# remove.packages("DT")
+# devtools::install_github("rstudio/DT",dependencies = TRUE, force = TRUE, upgrade = c("always"))
 
 OFFSET <- 2
 HEIGHT <- 300
@@ -389,7 +389,8 @@ server <- function(input, output, session) {
 
   output$tabelaTotalAnual <- DT::renderDataTable(
     DT::datatable(dataAnual(),
-                  rownames = FALSE) |>
+                  rownames = FALSE,
+                  options = list(iDisplayLength = 25)) |>
       DT::formatPercentage(c('Beneficiários / População'), 1) |>
       DT::formatRound(
         columns = c(
@@ -402,7 +403,7 @@ server <- function(input, output, session) {
         mark = ''
       ),
     options = list(
-      pageLength = 10,
+      pageLength = 25,
       autoWidth = TRUE,
       searching = TRUE
     )
@@ -459,7 +460,7 @@ server <- function(input, output, session) {
         nomeEscala = "R$",
         escalaCores = input$selectPerCapitaColours,
         min = 12,
-        max = 270,
+        max = 310,
         textRound = 0,
         textDigits = 0,
         title = 'PBF/Auxílio Brasil Total Anual per Capita',
@@ -479,7 +480,7 @@ server <- function(input, output, session) {
                           escalaCores = input$selectPorBenefColours,
                           nomeEscala = "KR$",
                           min = 0.17,
-                          max = 3.7,
+                          max = 4.3,
                           textRound = 2,
                           textDigits =  2,
                           title = 'PBF/Auxílio Brasil Total Anual por Beneficiário',
@@ -497,7 +498,7 @@ server <- function(input, output, session) {
         escalaCores = input$selectColors_Valores_Absolutos,
         nomeEscala = "BR$",
         min = 2.5,
-        max = 57,
+        max = 65,
         textRound = 0,
         textDigits =  0,
         title = 'PBF/Auxílio Brasil Total Anual Valores Absolutos',
@@ -623,7 +624,7 @@ server <- function(input, output, session) {
         escalaCores = input$selectPerCapitaColours,
         nomeEscala = "KR$",
         min = 0.2,
-        max = 4.25,
+        max = 4.5,
         textRound = 1,
         textDigits =  1,
         title = sprintf('PBF/Auxílio Brasil %s per Capita', input$selectAno),
@@ -636,7 +637,7 @@ server <- function(input, output, session) {
         escalaCores = input$selectPerCapitaColours,
         nomeEscala = "R$",
         min = 26,
-        max = 570,
+        max = 610,
         textRound = 0,
         textDigits =  0,
         title = sprintf('PBF/Auxílio Brasil %s per Capita', input$selectAno),
@@ -669,7 +670,7 @@ server <- function(input, output, session) {
         escalaCores = input$selectPorBenefColours,
         nomeEscala = "KR$",
         min = 0.18,
-        max = 4.2,
+        max = 4.7,
         textRound = 1,
         textDigits =  1,
         title = sprintf('PBF/Auxílio Brasil Total %s por Beneficiário', input$selectAno),
@@ -687,7 +688,7 @@ server <- function(input, output, session) {
         escalaCores = input$selectColors_Valores_Absolutos,
         nomeEscala = "BR$",
         min = 2.2,
-        max = 50,
+        max = 53,
         textRound = 1,
         textDigits =  1,
         title = sprintf('PBF/Auxílio Brasil Total %s Valores Absolutos ', input$selectAno),
@@ -700,7 +701,7 @@ server <- function(input, output, session) {
         escalaCores = input$selectColors_Valores_Absolutos,
         nomeEscala = "BR$",
         min = 0.33,
-        max = 7,
+        max = 8,
         textRound = 1,
         textDigits =  1,
         title = sprintf('PBF/Auxílio Brasil Total %s Valores Absolutos ', input$selectAno),
@@ -932,14 +933,14 @@ server <- function(input, output, session) {
         ggplot2::scale_y_continuous(
           labels = scales::comma_format(big.mark = ".",
                                         decimal.mark = ","),
-          limits = c(0, 12),
+          limits = c(0, 13),
           oob = scales::rescale_none
         ) +
         ggplot2::geom_text(ggplot2::aes(label = round(pbfPerCapita, 1)),
                            vjust = -0.5,
                            size = 2.5) +
         ggplot2::labs(
-          title = 'PBF + Aux Brasil: Total 2013-2022 Munic per Capita (Top 25)',
+          title = 'PBF + Aux Brasil: Total 2013-2023 Munic per Capita (Top 25)',
           x = '',
           y = 'KR$ 2021',
           subtitle = "Milhares de R$ Ajustados 2021"
@@ -985,7 +986,7 @@ server <- function(input, output, session) {
         ggplot2::scale_y_continuous(
           labels = scales::comma_format(big.mark = ".",
                                         decimal.mark = ","),
-          limits = c(0, 2.7),
+          limits = c(0, 3),
           oob = scales::rescale_none
         ) +
         ggplot2::labs(
@@ -1045,14 +1046,14 @@ server <- function(input, output, session) {
         ggplot2::scale_y_continuous(
           labels = scales::comma_format(big.mark = ".",
                                         decimal.mark = ","),
-          limits = c(2, 58),
+          limits = c(2, 58.5),
           oob = scales::rescale_none
         ) +
         ggplot2::geom_text(ggplot2::aes(label = round(pbfPerBenef, 1)),
                            vjust = -0.5,
                            size = 2.5) +
         ggplot2::labs(
-          title = 'PBF + Aux Brasil: Total 2013-2022 Município por Beneficiário (Top 25)',
+          title = 'PBF + Aux Brasil: Total 2013-2023 Município por Beneficiário (Top 25)',
           x = '',
           y = 'KR$ 2021',
           subtitle = "Milhares de R$ Ajustados 2021"
@@ -1160,7 +1161,7 @@ server <- function(input, output, session) {
         ggplot2::scale_y_continuous(
           labels = scales::comma_format(big.mark = ".",
                                         decimal.mark = ","),
-          limits = c(0, 11),
+          limits = c(0, 11.5),
           oob = scales::rescale_none
         ) +
         ggplot2::geom_text(ggplot2::aes(label = round(inflac2021, 1)),
@@ -1214,7 +1215,7 @@ server <- function(input, output, session) {
         ggplot2::scale_y_continuous(
           labels = scales::comma_format(big.mark = ".",
                                         decimal.mark = ","),
-          limits = c(0, 2),
+          limits = c(0, 2.3),
           oob = scales::rescale_none
         ) +
         ggplot2::geom_text(ggplot2::aes(label = round(inflac2021, 1)),
@@ -1386,7 +1387,7 @@ server <- function(input, output, session) {
 
   output$downloadDataAnual <- shiny::downloadHandler(
     filename = function() {
-      paste("pBF_auxBr_Dados_2013-2022.xlsx")
+      paste("pBF_auxBr_Dados_2013-2023.xlsx")
     },
     content = function(filename) {
       writexl::write_xlsx(list(
@@ -1425,7 +1426,7 @@ server <- function(input, output, session) {
           nomeEscala = "R$",
           escalaCores = input$selectPerCapitaColours,
           min = 12,
-          max = 270,
+          max = 310,
           textRound = 0,
           textDigits = 0,
           title = 'PBF/Auxílio Brasil Total Anual per Capita',
@@ -1449,7 +1450,7 @@ server <- function(input, output, session) {
                                    escalaCores = input$selectPorBenefColours,
                                    nomeEscala = "KR$",
                                    min = 0.17,
-                                   max = 3.7,
+                                   max = 4.3,
                                    textRound = 2,
                                    textDigits =  2,
                                    title = 'PBF/Auxílio Brasil Total Anual por Beneficiário',
@@ -1471,7 +1472,7 @@ server <- function(input, output, session) {
           escalaCores = input$selectColors_Valores_Absolutos,
           nomeEscala = "BR$",
           min = 2.5,
-          max = 57,
+          max = 65,
           textRound = 0,
           textDigits =  0,
           title = 'PBF/Auxílio Brasil Total Anual Valores Absolutos',
@@ -1488,7 +1489,7 @@ server <- function(input, output, session) {
       ggplot2::ggsave(
         paste0(
           temp_dir,
-          '/mapaPbfPerCapita_Estados_',
+          '/barras_PbfPerCapita_Estados_',
           input$selectAno,
           '.png'
         ),
@@ -1500,7 +1501,7 @@ server <- function(input, output, session) {
             escalaCores = input$selectPerCapitaColours,
             nomeEscala = "KR$",
             min = 0.2,
-            max = 4.25,
+            max = 4.5,
             textRound = 1,
             textDigits =  1,
             title = sprintf('PBF/Auxílio Brasil %s per Capita', input$selectAno),
@@ -1513,7 +1514,7 @@ server <- function(input, output, session) {
             escalaCores = input$selectPerCapitaColours,
             nomeEscala = "R$",
             min = 26,
-            max = 570,
+            max = 610,
             textRound = 0,
             textDigits =  0,
             title = sprintf('PBF/Auxílio Brasil %s per Capita', input$selectAno),
@@ -1530,7 +1531,7 @@ server <- function(input, output, session) {
       ggplot2::ggsave(
         paste0(
           temp_dir,
-          '/mapaPbfPerBenef_Estados_',
+          '/barras_PbfPerBenef_Estados_',
           input$selectAno,
           '.png'
         ),
@@ -1556,7 +1557,7 @@ server <- function(input, output, session) {
             escalaCores = input$selectPorBenefColours,
             nomeEscala = "KR$",
             min = 0.18,
-            max = 4.2,
+            max = 4.6,
             textRound = 1,
             textDigits =  1,
             title = sprintf('PBF/Auxílio Brasil Total %s por Beneficiário', input$selectAno),
@@ -1569,7 +1570,7 @@ server <- function(input, output, session) {
                               duration = MESSAGE_DURATION)
       ggplot2::ggsave(
         paste0(temp_dir,
-               '/mapaTotal_Estados_',
+               '/barras_Total_Estados_',
                input$selectAno,
                '.png'),
         plot = if (input$selectAno == 'Agregado 2013-2023') {
@@ -1579,7 +1580,7 @@ server <- function(input, output, session) {
             escalaCores = input$selectColors_Valores_Absolutos,
             nomeEscala = "BR$",
             min = 2.2,
-            max = 50,
+            max = 53,
             textRound = 1,
             textDigits =  1,
             title = sprintf('PBF/Auxílio Brasil Total %s Valores Absolutos ', input$selectAno),
@@ -1592,7 +1593,7 @@ server <- function(input, output, session) {
             escalaCores = input$selectColors_Valores_Absolutos,
             nomeEscala = "BR$",
             min = 0.33,
-            max = 7,
+            max = 8,
             textRound = 1,
             textDigits =  1,
             title = sprintf('PBF/Auxílio Brasil Total %s Valores Absolutos ', input$selectAno),
