@@ -16,7 +16,7 @@ postProc_Passo3 <- function(pasta) {
     library(package, character.only = TRUE)
   }
 
-  populacao_estados <- openxlsx::read.xlsx('arquivos_aux/populacao.xlsx',
+  populacao_estados <- openxlsx::read.xlsx(paste0(pasta,'/arquivos_aux/populacao.xlsx'),
                                          sheet = 'Estados') |>
     tidyr::pivot_longer(cols = 3:13,
                         names_to = 'Ano',
@@ -76,7 +76,7 @@ postProc_Passo3 <- function(pasta) {
   cli::cli_alert_success("Agregado por Estado e Ano + Total Estadual: OK")
 
   populacao_municipios <-
-    readxl::read_xlsx('arquivos_aux/populacao.xlsx',
+    readxl::read_xlsx(paste0(pasta,'/arquivos_aux/populacao.xlsx'),
                       sheet = 'Municipios') |>
     tidyr::pivot_longer(cols = 3:13,
                         names_to = 'Ano',
