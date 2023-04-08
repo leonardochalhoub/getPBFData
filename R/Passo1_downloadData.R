@@ -13,10 +13,26 @@ downloadData_Passo1 <-  function(pasta) {
 
   pastaOrigem <-  paste0(pasta, '/source_data')
   pastaCSV <- paste0(pasta, '/data')
+  pastaArquivosAuxiliares <- paste0(pasta, '/arquivos_aux')
 
   dir.create(file.path(pasta))
   dir.create(file.path(pastaOrigem))
   dir.create(file.path(pastaCSV))
+  dir.create(file.path(pastaArquivosAuxiliares))
+
+  # download arquivo populacao do github do pacote
+
+  populacao_git_url <- 'https://github.com/leonardochalhoub/getPBFData/blob/master/arquivos_aux/populacao.xlsx'
+  pop_pre =  paste0(pastaArquivosAuxiliares, '/populacao.xlsx')
+  if (file.exists(pop_pre)) {
+    return
+  } else {
+    try(
+      download.file(
+        url      = populacao_git_url,
+        destfile =  pop_pre,
+        mode     = "wb"))
+  }
 
   listaZipFiles <- list.files(path = pastaOrigem, pattern = "*.zip", full.names = TRUE)
 
