@@ -1,6 +1,6 @@
 library(sf) # Se não carregar a sf, a interpretação da coluna geom não funciona e atrapalha todo o resto.
 
-listOfPackages <- c("DT", "viridis", "forcats",
+listOfPackages <- c("viridis", "forcats",
                     "writexl", "devtools")
 
 for(package in listOfPackages){
@@ -10,7 +10,7 @@ for(package in listOfPackages){
   library(package, character.only = TRUE)
 }
 # remove.packages("DT")
-# devtools::install_github("rstudio/DT",dependencies = TRUE, force = TRUE, upgrade = c("always"))
+devtools::install_github("rstudio/DT",dependencies = TRUE, force = TRUE, upgrade = c("always"))
 
 OFFSET <- 2
 HEIGHT <- 300
