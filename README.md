@@ -8,7 +8,8 @@ Para análise destes dados, o foco não é nos beneficiários de forma individua
 
 [https://portaldatransparencia.gov.br/download-de-dados/auxilio-brasil/](https://portaldatransparencia.gov.br/download-de-dados/auxilio-brasil/)
 
-Uma interface em Shiny para visualização dos dados refinados está disponível na plataforma grátis shinyapps.io:  [https://g7eewc-oldman0ds.shinyapps.io/app_pbf_auxbr/](https://g7eewc-oldman0ds.shinyapps.io/app_pbf_auxbr/)
+Uma interface em Shiny para visualização dos dados refinados está disponível neste conteiner:  [https://hub.docker.com/r/leochalhoub/app_pbf](https://hub.docker.com/r/leochalhoub/app_pbf)
+Docker Pull Command: docker pull leochalhoub/app_pbf
 
 Na pasta /arquivos_aux, aqui no github, está o arquivo populacao.xlsx, resultado de coleta e verificações manuais que fiz a partir da [fonte oficial do IBGE](https://www.ibge.gov.br/estatisticas/sociais/populacao/9103-estimativas-de-populacao.html?edicao=17283&t=downloads). Aqui estão os dados para estados e municípios, de 2013 a 2021. Para 2022 e 2023, eu repeti os valores de 2021.
 
