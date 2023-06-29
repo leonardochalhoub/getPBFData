@@ -8,7 +8,9 @@ Para análise destes dados, o foco não é nos beneficiários de forma individua
 
 [https://portaldatransparencia.gov.br/download-de-dados/auxilio-brasil/](https://portaldatransparencia.gov.br/download-de-dados/auxilio-brasil/)
 
-Uma interface em Shiny para visualização dos dados refinados está disponível neste conteiner, configurar portas 8080:8080 e depois entrar em http://localhost:8080/ - basta dar um pull na imagem, configurar as portas, dar o play no Docker e clicar no link nas Ports :  [https://hub.docker.com/r/leochalhoub/app_pbf](https://hub.docker.com/r/leochalhoub/app_pbf)
+Uma interface em Shiny para visualização dos dados refinados está disponível neste contêiner do link:  [https://hub.docker.com/r/leochalhoub/app_pbf](https://hub.docker.com/r/leochalhoub/app_pbf)
+
+Depois do pull da imagem, basta clicar no 'play' e apontar porta 8080, assim você terá acesso em http://localhost:8080/
 ```r
 # Docker Pull Command
 docker pull leochalhoub/app_pbf
