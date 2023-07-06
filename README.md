@@ -10,9 +10,9 @@ Para análise destes dados, o foco não é nos beneficiários de forma individua
 
 Uma interface em Shiny para visualização dos dados refinados está disponível neste contêiner do link:  [https://hub.docker.com/r/leochalhoub/app_pbf](https://hub.docker.com/r/leochalhoub/app_pbf)
 
-Depois do pull da imagem, basta clicar no 'play' e apontar porta 8080, assim você terá acesso em http://localhost:8080/
+Depois do pull da imagem, basta clicar no 'play' e apontar porta 8080, assim você terá acesso em http://localhost:8080/ (na imagem rodando local, funciona perfeitamente)
 
-Este contêiner está rodando na Microsoft Azure aqui, atualizado com dados até fevereiro/2023 [https://app-pbf-auxbr.azurewebsites.net/](https://app-pbf-auxbr.azurewebsites.net/)
+Este contêiner está rodando na Microsoft Azure aqui, atualizado com dados até fevereiro/2023 [https://app-pbf-auxbr.azurewebsites.net/](https://app-pbf-auxbr.azurewebsites.net/) (Rodando na Azure às vezes dá erro nas tabelas, coisa de Javascript que não foi solucionado. Porém os downloads da tabela em excel e dos gráficos continuam funcionando).
 ```r
 # Docker Pull Command
 docker pull leochalhoub/app_pbf
