@@ -3,3 +3,7 @@
 .Rdata
 .httr-oauth
 .DS_Store
+
+# Local downloaded source data (do not commit large ZIPs)
+data/
+*.zip
