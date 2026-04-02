@@ -3,7 +3,12 @@
 .Rdata
 .httr-oauth
 .DS_Store
+*.pyc
 
 # Local downloaded source data (do not commit large ZIPs)
 data/
 *.zip
+
+# Lakehouse / Delta tables (generated)
+lakehouse/
+**/_delta_log/

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
 
-from pyspark.sql import DataFrame, SparkSession, functions as F
+from pyspark.sql import DataFrame, SparkSession, functions as F, types as T
 
 
 _MONTH_RE = re.compile(r"(?P<year>20\d{2})[_-]?(?P<month>0[1-9]|1[0-2])", re.IGNORECASE)
@@ -17,6 +17,10 @@ _SOURCE_RE = re.compile(r"^(?P<src>PBF|AUX_BR|AUX|NBF)[_-]", re.IGNORECASE)
 class BronzePaths:
     source_zips_dir: Path
     bronze_root: Path
+
+    @staticmethod
+    def for_lakehouse(source_zips_dir: Path, lakehouse_root: Path) -> "BronzePaths":
+        return BronzePaths(source_zips_dir=source_zips_dir, bronze_root=lakehouse_root / "bronze")
 
     @property
     def bronze_payments_path(self) -> str:
@@ -36,7 +40,7 @@ class ZipPaymentsBronzeIngestor:
     """Ingests monthly zip files into a Delta Lake Bronze table.
 
     Strategy:
-    - Extracts the inner CSV to a local temp dir and reads with Spark.
+    - Reads ZIP contents in-memory (does NOT extract CSVs to disk).
     - Normalizes column names to Delta-friendly ASCII snake_case.
     - Fixes Nov/2021 Bolsa Família header swap issue (mes_competencia/mes_referencia).
     - Adds metadata:
@@ -45,11 +49,11 @@ class ZipPaymentsBronzeIngestor:
         - source_zip, source_inner, ingest_ts
     - Writes append to Delta partitioned by origin/ano/mes.
 
-    Important:
-    - The R pipeline sums PBF + Auxílio Brasil for 2021-11 *implicitly* because it aggregates
-      all CSVs together by mes_competencia (it reads every extracted CSV and then group_by/sum).
-      In our Python pipeline we keep both origins in Bronze and will implement the “sum Nov/2021”
-      rule in Silver/Gold by aggregating across origins.
+    Special rule:
+    - For 2021-11, there are two program files (PBF and AUX). We create an extra origin
+      "PBF_AUX_SUM" for that month containing the summed values (numeric columns summed,
+      non-numeric columns taken as first non-null). This matches the legacy behavior where
+      2021-11 is treated as a single combined dataset.
     """
 
     def __init__(self, spark: SparkSession, paths: BronzePaths, opts: IngestOptions = IngestOptions()):
@@ -99,8 +103,15 @@ class ZipPaymentsBronzeIngestor:
         return sized[0][0]
 
     def _read_zip_csv(self, zip_path: Path) -> Tuple[DataFrame, str]:
-        """Extracts the inner CSV to a local temp dir and reads with Spark."""
+        """Extract inner CSV to a temp folder, read with Spark, then delete the extracted CSV.
+
+        Why:
+        - Reading huge CSVs from an in-memory RDD creates giant Spark tasks and can deadlock.
+        - This keeps disk usage bounded: we extract one CSV at a time then remove it after the
+          Spark read has loaded it.
+        """
         inner = self._find_inner_csv(zip_path)
+
         extract_dir = self.paths.bronze_root / "_tmp_extract" / zip_path.stem
         extract_dir.mkdir(parents=True, exist_ok=True)
         target = extract_dir / Path(inner).name
@@ -124,6 +135,10 @@ class ZipPaymentsBronzeIngestor:
             .option("mode", "PERMISSIVE")
             .load(str(target))
         )
+
+        # IMPORTANT: do NOT delete here.
+        # Spark is lazy and will read the file later during the write action.
+        # We delete the extracted file only after the downstream write succeeds.
         return df, inner
 
     @staticmethod
@@ -186,31 +201,111 @@ class ZipPaymentsBronzeIngestor:
 
         self.spark.sql("SET spark.databricks.delta.schema.autoMerge.enabled=true")
 
-        for idx, z in enumerate(zip_files, start=1):
-            year, month = self._month_from_name(z)
-            df_raw, inner = self._read_zip_csv(z)
-            df_norm = self._normalize_cols(df_raw)
-            df_norm = self._fix_nov_2021_header_swap(df_norm, year, month)
+        # Load and write month by month so we can apply special rules (e.g. 2021-11 sum)
+        month_groups: dict[tuple[int, int], list[Path]] = {}
+        for z in zip_files:
+            ym = self._month_from_name(z)
+            month_groups.setdefault(ym, []).append(z)
 
-            origin = self._origin_from_name(z)
-            df_out = (
-                df_norm.withColumn("origin", F.lit(origin))
-                .withColumn("ano", F.lit(year).cast("int"))
-                .withColumn("mes", F.lit(month).cast("int"))
-                .withColumn("competencia", F.format_string("%04d%02d", F.col("ano"), F.col("mes")))
-                .withColumn("source_zip", F.lit(str(z)))
-                .withColumn("source_inner", F.lit(inner))
-                .withColumn("ingest_ts", F.current_timestamp())
-            )
+        for idx, ((year, month), files) in enumerate(sorted(month_groups.items()), start=1):
+            month_dfs: list[DataFrame] = []
+            extracted_paths: list[Path] = []
 
-            (
-                df_out.write.format("delta")
-                .mode("append")
-                .partitionBy("origin", "ano", "mes")
-                .save(self.paths.bronze_payments_path)
-            )
+            for z in sorted(files):
+                df_raw, inner = self._read_zip_csv(z)
+                # Track extracted CSV path so we can delete it after write succeeds
+                extracted_paths.append(self.paths.bronze_root / "_tmp_extract" / z.stem / Path(inner).name)
+                df_norm = self._normalize_cols(df_raw)
+                df_norm = self._fix_nov_2021_header_swap(df_norm, year, month)
 
-            print(
-                f"[{idx}/{len(zip_files)}] Ingested {z.name} -> {self.paths.bronze_payments_path} "
-                f"(origin={origin}, year={year}, month={month})"
-            )
+                origin = self._origin_from_name(z)
+                df_out = (
+                    df_norm.withColumn("origin", F.lit(origin))
+                    .withColumn("ano", F.lit(year).cast("int"))
+                    .withColumn("mes", F.lit(month).cast("int"))
+                    .withColumn("competencia", F.format_string("%04d%02d", F.col("ano"), F.col("mes")))
+                    .withColumn("source_zip", F.lit(str(z)))
+                    .withColumn("source_inner", F.lit(inner))
+                    .withColumn("ingest_ts", F.current_timestamp())
+                )
+                month_dfs.append(df_out)
+
+                (
+                    df_out.write.format("delta")
+                    .mode("append")
+                    .partitionBy("origin", "ano", "mes")
+                    .save(self.paths.bronze_payments_path)
+                )
+
+                # After the write action completes, Spark has consumed the file; safe to delete now.
+                tmp_csv = self.paths.bronze_root / "_tmp_extract" / z.stem / Path(inner).name
+                tmp_dir = tmp_csv.parent
+                tmp_csv.unlink(missing_ok=True)
+                # remove any nested path (best-effort)
+                try:
+                    nested = tmp_dir / inner
+                    if nested.exists():
+                        nested.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                try:
+                    tmp_dir.rmdir()
+                except Exception:
+                    pass
+
+                print(
+                    f"[{idx}/{len(month_groups)}] Ingested {z.name} -> {self.paths.bronze_payments_path} "
+                    f"(origin={origin}, year={year}, month={month})"
+                )
+
+            # Special month: 2021-11 sum across PBF + AUX into an extra origin
+            if year == 2021 and month == 11:
+                combined = None
+                for df in month_dfs:
+                    combined = df if combined is None else combined.unionByName(df, allowMissingColumns=True)
+
+                if combined is not None:
+                    # Identify numeric columns to sum (exclude metadata)
+                    meta_cols = {
+                        "origin",
+                        "ano",
+                        "mes",
+                        "competencia",
+                        "source_zip",
+                        "source_inner",
+                        "ingest_ts",
+                    }
+                    numeric_cols = [
+                        c
+                        for c, t in combined.dtypes
+                        if c not in meta_cols and t in ("int", "bigint", "double", "float", "decimal")
+                    ]
+                    other_cols = [c for c in combined.columns if c not in meta_cols and c not in numeric_cols]
+
+                    agg_exprs = []
+                    for c in numeric_cols:
+                        agg_exprs.append(F.sum(F.col(c)).alias(c))
+                    for c in other_cols:
+                        agg_exprs.append(F.first(F.col(c), ignorenulls=True).alias(c))
+
+                    summed = (
+                        combined.filter(F.col("origin").isin(["PBF", "AUX"]))
+                        .groupBy("ano", "mes", "competencia")
+                        .agg(*agg_exprs)
+                        .withColumn("origin", F.lit("PBF_AUX_SUM"))
+                        .withColumn("source_zip", F.lit("MULTI"))
+                        .withColumn("source_inner", F.lit("MULTI"))
+                        .withColumn("ingest_ts", F.current_timestamp())
+                    )
+
+                    (
+                        summed.write.format("delta")
+                        .mode("append")
+                        .partitionBy("origin", "ano", "mes")
+                        .save(self.paths.bronze_payments_path)
+                    )
+
+                    print(
+                        f"[{idx}/{len(month_groups)}] Ingested 2021-11 combined -> {self.paths.bronze_payments_path} "
+                        f"(origin=PBF_AUX_SUM, year={year}, month={month})"
+                    )

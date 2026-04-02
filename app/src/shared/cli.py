@@ -4,8 +4,8 @@ from pathlib import Path
 
 import argparse
 
-from pbf_pipeline.spark import SparkConfig, SparkFactory
-from pbf_pipeline.ingest.bronze import BronzePaths, ZipPaymentsBronzeIngestor
+from shared.spark import SparkConfig, SparkFactory
+from bronze.bronze import BronzePaths, ZipPaymentsBronzeIngestor
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -20,10 +20,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Directory containing monthly ZIP files",
     )
     b.add_argument(
-        "--bronze-root",
+        "--lakehouse-root",
         required=True,
         type=Path,
-        help="Root path where bronze delta tables will be stored",
+        help="Root path of the lakehouse folder (will use lakehouse/bronze)",
     )
     b.add_argument("--master", default=None, help="Spark master, e.g. local[*]")
     b.add_argument("--shuffle-partitions", default=200, type=int)
@@ -40,7 +40,7 @@ def cmd_ingest_bronze(args: argparse.Namespace) -> None:
         )
     )
 
-    paths = BronzePaths(source_zips_dir=args.source_zips_dir, bronze_root=args.bronze_root)
+    paths = BronzePaths.for_lakehouse(source_zips_dir=args.source_zips_dir, lakehouse_root=args.lakehouse_root)
     ZipPaymentsBronzeIngestor(spark=spark, paths=paths).ingest_all()
 
 
