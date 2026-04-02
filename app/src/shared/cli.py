@@ -27,6 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     b.add_argument("--master", default=None, help="Spark master, e.g. local[*]")
     b.add_argument("--shuffle-partitions", default=200, type=int)
+    b.add_argument("--batch-size", default=12, type=int, help="How many (year,month) groups to ingest per Spark batch")
 
     return p
 
@@ -41,7 +42,7 @@ def cmd_ingest_bronze(args: argparse.Namespace) -> None:
     )
 
     paths = BronzePaths.for_lakehouse(source_zips_dir=args.source_zips_dir, lakehouse_root=args.lakehouse_root)
-    ZipPaymentsBronzeIngestor(spark=spark, paths=paths).ingest_all()
+    ZipPaymentsBronzeIngestor(spark=spark, paths=paths).ingest_all(batch_size=args.batch_size)
 
 
 def main() -> None:
