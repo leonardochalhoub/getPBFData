@@ -37,6 +37,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+import requests
+from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 PBF_BASE = "http://www.portaltransparencia.gov.br/download-de-dados/bolsa-familia-pagamentos/"
 AUX_BASE = "https://portaldatransparencia.gov.br/download-de-dados/auxilio-brasil/"
@@ -96,29 +100,49 @@ def _download(url: str, dest: Path, timeout: int, retries: int, sleep_s: float) 
     # Ensure parent exists
     dest.parent.mkdir(parents=True, exist_ok=True)
 
+    headers = {
+        # Some servers behave better with a UA
+        "User-Agent": "Mozilla/5.0 (compatible; getPBFData-downloader/1.0)",
+        "Accept": "*/*",
+    }
+
     for attempt in range(1, retries + 1):
         try:
-            req = urllib.request.Request(
-                url,
-                headers={
-                    # Some servers behave better with a UA
-                    "User-Agent": "Mozilla/5.0 (compatible; getPBFData-downloader/1.0)",
-                },
-            )
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                data = resp.read()
+            with requests.get(url, headers=headers, stream=True, timeout=timeout, allow_redirects=True) as r:
+                r.raise_for_status()
+                total = int(r.headers.get("Content-Length") or 0)
 
-            # Quick validation
-            if not data.startswith(ZIP_MAGIC):
-                # Not a zip: often HTML "not found" body
-                if dest.exists():
-                    dest.unlink(missing_ok=True)
-                return False
+                tmp = dest.with_suffix(dest.suffix + ".part")
+                written = 0
 
-            dest.write_bytes(data)
-            return True
+                with tmp.open("wb") as f:
+                    bar = tqdm(
+                        total=total if total > 0 else None,
+                        unit="B",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                        desc=f"{dest.name}",
+                        leave=False,
+                    )
+                    try:
+                        for chunk in r.iter_content(chunk_size=1024 * 1024):
+                            if not chunk:
+                                continue
+                            f.write(chunk)
+                            written += len(chunk)
+                            bar.update(len(chunk))
+                    finally:
+                        bar.close()
 
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as e:
+                # Quick validation
+                if written < 4 or not _is_zip_file(tmp):
+                    tmp.unlink(missing_ok=True)
+                    return False
+
+                tmp.replace(dest)
+                return True
+
+        except (requests.HTTPError, requests.ConnectionError, requests.Timeout) as e:
             if attempt == retries:
                 print(f"[ERROR] {url} -> {e}", file=sys.stderr)
                 return False
@@ -148,7 +172,7 @@ def main() -> int:
     ap.add_argument(
         "--aux-years",
         default="2021-2023",
-        help="Years for Auxílio Brasil downloads (default: 2021-2023)",
+        help="Years for Auxílio Brasil downloads (default: 2021-2023; note: months typically start at 2021-11)",
     )
     ap.add_argument(
         "--nbf-years",
@@ -168,6 +192,12 @@ def main() -> int:
         choices=["pbf", "aux", "nbf", "both"],
         default="both",
         help="Which datasets to download (default: both)",
+    )
+    ap.add_argument(
+        "--workers",
+        type=int,
+        default=4,
+        help="Number of parallel download workers (default: 4). Each worker downloads one ZIP at a time.",
     )
 
     args = ap.parse_args()
@@ -193,6 +223,8 @@ def main() -> int:
     aux_years = _parse_years(args.aux_years)
     nbf_years = _parse_years(args.nbf_years)
 
+    # Build tasks first so we can run them in parallel.
+    tasks: list[tuple[str, str, Path]] = []  # (prefix, url, dest)
     total = 0
     ok = 0
     skipped = 0
@@ -216,21 +248,32 @@ def main() -> int:
                 skipped += 1
                 continue
 
-            downloaded = _download(
-                url=url,
-                dest=dest,
-                timeout=args.timeout,
-                retries=args.retries,
-                sleep_s=args.sleep,
-            )
+            tasks.append((spec.prefix, url, dest))
+
+    def _run_one(prefix: str, url: str, dest: Path) -> tuple[bool, str, str, Path]:
+        downloaded = _download(
+            url=url,
+            dest=dest,
+            timeout=args.timeout,
+            retries=args.retries,
+            sleep_s=args.sleep,
+        )
+        return downloaded, prefix, url, dest
+
+    # Run downloads in parallel. NOTE: tqdm progress bars from multiple threads will interleave;
+    # each bar is still visible but not perfectly pretty.
+    with ThreadPoolExecutor(max_workers=args.workers) as ex:
+        futures = [ex.submit(_run_one, prefix, url, dest) for prefix, url, dest in tasks]
+        for fut in as_completed(futures):
+            downloaded, prefix, url, dest = fut.result()
+            yyyymm = dest.stem.split("_", 2)[1].replace("-", "")
             if downloaded:
                 ok += 1
-                print(f"[OK] {spec.prefix} {yyyymm} -> {dest}")
+                print(f"[OK] {prefix} -> {dest}")
             else:
                 missing += 1
-                # Clean up any partial file
                 dest.unlink(missing_ok=True)
-                print(f"[MISS] {spec.prefix} {yyyymm} (no zip at {url})")
+                print(f"[MISS] {prefix} (no zip at {url})")
 
     print(
         f"Done. total={total} ok={ok} skipped={skipped} missing={missing}. "
