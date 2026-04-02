@@ -37,17 +37,19 @@ class IngestOptions:
 
 
 class ZipPaymentsBronzeIngestor:
-    """Ingests monthly zip files into a Delta Lake Bronze table.
+    """Ingests monthly ZIP files into a Delta Lake Bronze table.
 
     Strategy:
-    - Reads ZIP contents in-memory (does NOT extract CSVs to disk).
+    - Extracts the inner CSV to a temporary folder on disk (one ZIP at a time), reads it with Spark,
+      then deletes the extracted file(s) after a successful Delta write.
     - Normalizes column names to Delta-friendly ASCII snake_case.
     - Fixes Nov/2021 Bolsa Família header swap issue (mes_competencia/mes_referencia).
     - Adds metadata:
         - ano, mes, competencia (yyyymm inferred from filename)
         - origin (AUX/PBF/NBF inferred from filename prefix)
         - source_zip, source_inner, ingest_ts
-    - Writes append to Delta partitioned by origin/ano/mes.
+    - Writes using partitioned Delta layout: partitionBy(origin, ano, mes). Ingestion is idempotent
+      per partition via dynamic partition overwrite at batch scope.
 
     Special rule:
     - For 2021-11, there are two program files (PBF and AUX). We create an extra origin
