@@ -47,6 +47,7 @@ AUX_BASE = "https://portaldatransparencia.gov.br/download-de-dados/auxilio-brasi
 NBF_BASE = "https://portaldatransparencia.gov.br/download-de-dados/novo-bolsa-familia/"
 
 ZIP_MAGIC = b"PK\x03\x04"
+ZIP_MAGIC_EMPTY = b"PK\x05\x06"
 
 
 @dataclass(frozen=True)
@@ -86,9 +87,13 @@ def _dest_name(prefix: str, year: int, month: int) -> str:
 
 
 def _is_zip_file(path: Path) -> bool:
+    """
+    Accept normal zip local-file-header magic (PK\\x03\\x04) and empty-zip EOCD (PK\\x05\\x06).
+    """
     try:
         with path.open("rb") as f:
-            return f.read(4) == ZIP_MAGIC
+            head = f.read(4)
+        return head in (ZIP_MAGIC, ZIP_MAGIC_EMPTY)
     except OSError:
         return False
 
@@ -96,6 +101,9 @@ def _is_zip_file(path: Path) -> bool:
 def _download(url: str, dest: Path, timeout: int, retries: int, sleep_s: float) -> bool:
     """
     Returns True if a valid zip was downloaded, False otherwise.
+
+    The Portal sometimes returns an HTML page (or JSON) with status 200 for missing months.
+    We validate by checking the ZIP magic bytes and also log some response metadata.
     """
     # Ensure parent exists
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -110,6 +118,7 @@ def _download(url: str, dest: Path, timeout: int, retries: int, sleep_s: float) 
         try:
             with requests.get(url, headers=headers, stream=True, timeout=timeout, allow_redirects=True) as r:
                 r.raise_for_status()
+                content_type = (r.headers.get("Content-Type") or "").lower()
                 total = int(r.headers.get("Content-Length") or 0)
 
                 tmp = dest.with_suffix(dest.suffix + ".part")
@@ -134,9 +143,29 @@ def _download(url: str, dest: Path, timeout: int, retries: int, sleep_s: float) 
                     finally:
                         bar.close()
 
-                # Quick validation
+                # Quick validation: magic bytes must be ZIP.
+                # If not, print a short diagnostic to help debugging.
                 if written < 4 or not _is_zip_file(tmp):
+                    snippet = b""
+                    try:
+                        with tmp.open("rb") as f:
+                            snippet = f.read(200)
+                    except OSError:
+                        pass
+
                     tmp.unlink(missing_ok=True)
+
+                    # Best-effort: avoid dumping binary; show a safe preview
+                    try:
+                        preview = snippet.decode("utf-8", errors="replace")
+                    except Exception:
+                        preview = repr(snippet)
+
+                    print(
+                        f"[NOT_ZIP] {url} -> content-type='{content_type}' bytes={written} "
+                        f"head={snippet[:12]!r} preview={preview[:120]!r}",
+                        file=sys.stderr,
+                    )
                     return False
 
                 tmp.replace(dest)
@@ -166,7 +195,7 @@ def main() -> int:
     )
     ap.add_argument(
         "--pbf-years",
-        default="2013-2021,2023",
+        default="2013-2021",
         help="Years for PBF downloads (default: 2013-2021,2023)",
     )
     ap.add_argument(

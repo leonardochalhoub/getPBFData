@@ -194,7 +194,13 @@ class ZipPaymentsBronzeIngestor:
                 )
         return df
 
-    def ingest_all(self, batch_size: int = 12) -> None:
+    def ingest_all(
+        self,
+        batch_size: int = 12,
+        *,
+        origin_allow: Optional[set[str]] = None,
+        min_year_month: Optional[tuple[int, int]] = None,
+    ) -> None:
         zip_files = self._list_zip_files()
         if not zip_files:
             raise RuntimeError(f"No zip files found in {self.paths.source_zips_dir}")
@@ -204,7 +210,17 @@ class ZipPaymentsBronzeIngestor:
         # Group zips by (year, month) so we can batch multiple months into a single Spark job.
         month_groups: dict[tuple[int, int], list[Path]] = {}
         for z in zip_files:
+            origin = self._origin_from_name(z).upper()
+            if origin_allow is not None and origin not in origin_allow:
+                continue
+
             ym = self._month_from_name(z)
+            if min_year_month is not None:
+                min_y, min_m = min_year_month
+                y, m = ym
+                if (y, m) < (min_y, min_m):
+                    continue
+
             month_groups.setdefault(ym, []).append(z)
 
         month_items = sorted(month_groups.items())
