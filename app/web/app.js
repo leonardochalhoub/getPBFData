@@ -467,6 +467,13 @@ async function downloadAllMapsZip({
 
     // Render + capture without touching the visible charts
     async function renderBarAndCapture(metricKey) {
+      const isDark = document.body.classList.contains("dark");
+
+      const barColor = isDark ? "#60a5fa" : "#2b6cb0";
+      const textColor = isDark ? "rgba(232, 238, 249, 0.92)" : "#111";
+      const gridColor = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
+      const bg = isDark ? "#0f172a" : "#ffffff";
+
       const sums = sumByYear(rows, metricKey);
       const x = years;
       const y = years.map((yy) => (sums.get(yy) === undefined ? null : sums.get(yy)));
@@ -479,15 +486,24 @@ async function downloadAllMapsZip({
             type: "bar",
             x,
             y,
-            marker: { color: "#2b6cb0" },
+            marker: { color: barColor },
             text,
             textposition: "outside",
             cliponaxis: false,
           },
         ],
         {
+          paper_bgcolor: bg,
+          plot_bgcolor: bg,
           margin: { t: 10, r: 10, b: 70, l: 70 },
-          yaxis: { title: metricLabel(metricKey), automargin: true },
+          yaxis: {
+            title: metricLabel(metricKey),
+            automargin: true,
+            gridcolor: gridColor,
+            zerolinecolor: gridColor,
+            tickfont: { color: textColor },
+            titlefont: { color: textColor },
+          },
           xaxis: {
             title: "Ano",
             type: "category",
@@ -496,15 +512,25 @@ async function downloadAllMapsZip({
             ticktext: x.map(String),
             tickangle: -45,
             automargin: true,
+            gridcolor: "rgba(0,0,0,0)",
+            tickfont: { color: textColor },
+            titlefont: { color: textColor },
           },
+          font: { color: textColor },
         },
-        { displayModeBar: false }
+        { displayModeBar: false, responsive: true }
       );
 
       return toPngBytesFromDiv(barDiv, barSize);
     }
 
     async function renderMapAndCapture(metricKey, yearValue) {
+      const isDark = document.body.classList.contains("dark");
+
+      const textColor = isDark ? "rgba(232, 238, 249, 0.92)" : "#111";
+      const bg = isDark ? "#0f172a" : "#ffffff";
+      const borderColor = isDark ? "rgba(255,255,255,0.45)" : "#ffffff";
+
       const isAgg = yearValue === "AGG";
       const year = isAgg ? null : parseInt(yearValue, 10);
       const reverseScale = getReverseScale(colorscale);
@@ -542,17 +568,24 @@ async function downloadAllMapsZip({
             z,
             colorscale,
             reversescale: reverseScale,
-            colorbar: { title: metricColorbarTitle(metricKey) },
-            marker: { line: { color: "#ffffff", width: 0.5 } },
+            colorbar: {
+              title: { text: metricColorbarTitle(metricKey), font: { color: textColor } },
+              tickfont: { color: textColor },
+              outlinecolor: isDark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.15)",
+            },
+            marker: { line: { color: borderColor, width: 0.6 } },
           },
         ],
         {
+          paper_bgcolor: bg,
+          plot_bgcolor: bg,
           margin: { t: 55, r: 10, b: 10, l: 10 },
           geo: {
             fitbounds: "locations",
             visible: false,
             projection: { type: "mercator", scale: 1.55 },
             center: { lat: -14, lon: -52 },
+            bgcolor: bg,
           },
           annotations: [
             {
@@ -564,11 +597,12 @@ async function downloadAllMapsZip({
               yanchor: "bottom",
               showarrow: false,
               text: mapTitle,
-              font: { size: 20, color: "#111" },
+              font: { size: 20, color: textColor },
             },
           ],
+          font: { color: textColor },
         },
-        { displayModeBar: false }
+        { displayModeBar: false, responsive: true }
       );
 
       return toPngBytesFromDiv(mapDiv, mapSize);
