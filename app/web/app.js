@@ -92,6 +92,14 @@ function getReverseScale(colorscale) {
 }
 
 function renderBar({ rows, years, metric }) {
+  const isDark = document.body.classList.contains("dark");
+
+  // Dark-mode tuned palette for bars (high contrast, colorblind-friendly-ish)
+  const barColor = isDark ? "#60a5fa" : "#2b6cb0";
+  const textColor = isDark ? "rgba(232, 238, 249, 0.92)" : "#111";
+  const gridColor = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
+  const bg = isDark ? "#0f172a" : "#ffffff";
+
   const sums = sumByYear(rows, metric);
   const x = years;
   const y = years.map((yy) => (sums.get(yy) === undefined ? null : sums.get(yy)));
@@ -106,7 +114,7 @@ function renderBar({ rows, years, metric }) {
         type: "bar",
         x,
         y,
-        marker: { color: "#2b6cb0" },
+        marker: { color: barColor },
         text,
         textposition: "outside",
         cliponaxis: false,
@@ -114,8 +122,17 @@ function renderBar({ rows, years, metric }) {
       },
     ],
     {
+      paper_bgcolor: bg,
+      plot_bgcolor: bg,
       margin: { t: 10, r: 10, b: 70, l: 70 },
-      yaxis: { title: metricLabel(metric), automargin: true },
+      yaxis: {
+        title: metricLabel(metric),
+        automargin: true,
+        gridcolor: gridColor,
+        zerolinecolor: gridColor,
+        tickfont: { color: textColor },
+        titlefont: { color: textColor },
+      },
       xaxis: {
         title: "Ano",
         type: "category",
@@ -124,26 +141,25 @@ function renderBar({ rows, years, metric }) {
         ticktext: x.map(String),
         tickangle: -45,
         automargin: true,
+        gridcolor: "rgba(0,0,0,0)",
+
+        tickfont: { color: textColor },
+        titlefont: { color: textColor },
       },
-      annotations: [
-        {
-          xref: "paper",
-          yref: "paper",
-          x: 0,
-          y: -0.35,
-          showarrow: false,
-          align: "left",
-          text:
-            "Anos com barra nula indicam que a métrica não tem valores no gold para aquele ano (ex.: falta do deflator após 2021).",
-          font: { size: 11, color: "#666" },
-        },
-      ],
+      font: { color: textColor },
+      annotations: [],
     },
-    { displayModeBar: false }
+    { displayModeBar: false, responsive: true }
   );
 }
 
 function renderMap({ rows, metric, colorscale, yearValue, years, geojson }) {
+  const isDark = document.body.classList.contains("dark");
+
+  const textColor = isDark ? "rgba(232, 238, 249, 0.92)" : "#111";
+  const bg = isDark ? "#0f172a" : "#ffffff";
+  const borderColor = isDark ? "rgba(255,255,255,0.45)" : "#ffffff";
+
   const isAgg = yearValue === "AGG";
   const year = isAgg ? null : parseInt(yearValue, 10);
 
@@ -210,11 +226,17 @@ function renderMap({ rows, metric, colorscale, yearValue, years, geojson }) {
         hovertemplate: "%{text}<extra></extra>",
         colorscale,
         reversescale: reverseScale,
-        colorbar: { title: metricColorbarTitle(metric) },
-        marker: { line: { color: "#ffffff", width: 0.5 } },
+        colorbar: {
+          title: { text: metricColorbarTitle(metric), font: { color: textColor } },
+          tickfont: { color: textColor },
+          outlinecolor: isDark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.15)",
+        },
+        marker: { line: { color: borderColor, width: 0.6 } },
       },
     ],
     {
+      paper_bgcolor: bg,
+      plot_bgcolor: bg,
       // More top margin so the title is clearly visible in PNG exports
       // Put the title closer to the map and ensure it is inside the canvas (PNG-safe)
       margin: { t: 55, r: 10, b: 10, l: 10 },
@@ -224,6 +246,7 @@ function renderMap({ rows, metric, colorscale, yearValue, years, geojson }) {
         visible: false,
         projection: { type: "mercator", scale: 1.55 },
         center: { lat: -14, lon: -52 },
+        bgcolor: bg,
       },
       annotations: [
         {
@@ -235,11 +258,12 @@ function renderMap({ rows, metric, colorscale, yearValue, years, geojson }) {
           yanchor: "bottom",
           showarrow: false,
           text: mapTitle,
-          font: { size: 20, color: "#111" },
+          font: { size: 20, color: textColor },
         },
       ],
+      font: { color: textColor },
     },
-    { displayModeBar: false }
+    { displayModeBar: false, responsive: true }
   );
 }
 
@@ -443,6 +467,13 @@ async function downloadAllMapsZip({
 
     // Render + capture without touching the visible charts
     async function renderBarAndCapture(metricKey) {
+      const isDark = document.body.classList.contains("dark");
+
+      const barColor = isDark ? "#60a5fa" : "#2b6cb0";
+      const textColor = isDark ? "rgba(232, 238, 249, 0.92)" : "#111";
+      const gridColor = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
+      const bg = isDark ? "#0f172a" : "#ffffff";
+
       const sums = sumByYear(rows, metricKey);
       const x = years;
       const y = years.map((yy) => (sums.get(yy) === undefined ? null : sums.get(yy)));
@@ -455,15 +486,24 @@ async function downloadAllMapsZip({
             type: "bar",
             x,
             y,
-            marker: { color: "#2b6cb0" },
+            marker: { color: barColor },
             text,
             textposition: "outside",
             cliponaxis: false,
           },
         ],
         {
+          paper_bgcolor: bg,
+          plot_bgcolor: bg,
           margin: { t: 10, r: 10, b: 70, l: 70 },
-          yaxis: { title: metricLabel(metricKey), automargin: true },
+          yaxis: {
+            title: metricLabel(metricKey),
+            automargin: true,
+            gridcolor: gridColor,
+            zerolinecolor: gridColor,
+            tickfont: { color: textColor },
+            titlefont: { color: textColor },
+          },
           xaxis: {
             title: "Ano",
             type: "category",
@@ -472,15 +512,25 @@ async function downloadAllMapsZip({
             ticktext: x.map(String),
             tickangle: -45,
             automargin: true,
+            gridcolor: "rgba(0,0,0,0)",
+            tickfont: { color: textColor },
+            titlefont: { color: textColor },
           },
+          font: { color: textColor },
         },
-        { displayModeBar: false }
+        { displayModeBar: false, responsive: true }
       );
 
       return toPngBytesFromDiv(barDiv, barSize);
     }
 
     async function renderMapAndCapture(metricKey, yearValue) {
+      const isDark = document.body.classList.contains("dark");
+
+      const textColor = isDark ? "rgba(232, 238, 249, 0.92)" : "#111";
+      const bg = isDark ? "#0f172a" : "#ffffff";
+      const borderColor = isDark ? "rgba(255,255,255,0.45)" : "#ffffff";
+
       const isAgg = yearValue === "AGG";
       const year = isAgg ? null : parseInt(yearValue, 10);
       const reverseScale = getReverseScale(colorscale);
@@ -518,17 +568,24 @@ async function downloadAllMapsZip({
             z,
             colorscale,
             reversescale: reverseScale,
-            colorbar: { title: metricColorbarTitle(metricKey) },
-            marker: { line: { color: "#ffffff", width: 0.5 } },
+            colorbar: {
+              title: { text: metricColorbarTitle(metricKey), font: { color: textColor } },
+              tickfont: { color: textColor },
+              outlinecolor: isDark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.15)",
+            },
+            marker: { line: { color: borderColor, width: 0.6 } },
           },
         ],
         {
+          paper_bgcolor: bg,
+          plot_bgcolor: bg,
           margin: { t: 55, r: 10, b: 10, l: 10 },
           geo: {
             fitbounds: "locations",
             visible: false,
             projection: { type: "mercator", scale: 1.55 },
             center: { lat: -14, lon: -52 },
+            bgcolor: bg,
           },
           annotations: [
             {
@@ -540,11 +597,12 @@ async function downloadAllMapsZip({
               yanchor: "bottom",
               showarrow: false,
               text: mapTitle,
-              font: { size: 20, color: "#111" },
+              font: { size: 20, color: textColor },
             },
           ],
+          font: { color: textColor },
         },
-        { displayModeBar: false }
+        { displayModeBar: false, responsive: true }
       );
 
       return toPngBytesFromDiv(mapDiv, mapSize);
@@ -580,8 +638,41 @@ async function downloadAllMapsZip({
   }
 }
 
+function applyTheme(theme) {
+  const isDark = theme === "dark";
+  document.body.classList.toggle("dark", isDark);
+  try {
+    localStorage.setItem("theme", isDark ? "dark" : "light");
+  } catch (_) {
+    // ignore
+  }
+
+  const toggle = document.getElementById("toggleDark");
+  if (toggle && toggle.type === "checkbox") {
+    toggle.checked = isDark;
+  }
+}
+
+function initTheme() {
+  let saved = null;
+  try {
+    saved = localStorage.getItem("theme");
+  } catch (_) {
+    saved = null;
+  }
+
+  if (saved === "dark" || saved === "light") {
+    applyTheme(saved);
+    return;
+  }
+
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(prefersDark ? "dark" : "light");
+}
+
 async function main() {
   initBuildDate();
+  initTheme();
   setLoading(true);
   setError("");
 
@@ -603,6 +694,7 @@ async function main() {
 
     const downloadBtn = document.getElementById("downloadXlsx");
     const downloadAllPngBtn = document.getElementById("downloadAllPng");
+    const toggleDarkBtn = document.getElementById("toggleDark");
 
     function render() {
       const metric = metricSel.value;
@@ -638,6 +730,13 @@ async function main() {
     yearSel.addEventListener("change", render);
     if (downloadBtn) downloadBtn.addEventListener("click", onDownload);
     if (downloadAllPngBtn) downloadAllPngBtn.addEventListener("click", onDownloadAllPng);
+    if (toggleDarkBtn) {
+      // Checkbox toggle
+      toggleDarkBtn.addEventListener("change", () => {
+        applyTheme(toggleDarkBtn.checked ? "dark" : "light");
+        render(); // re-render charts so Plotly picks up dark palette
+      });
+    }
 
     render();
   } catch (e) {
