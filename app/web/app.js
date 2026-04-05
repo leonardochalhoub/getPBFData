@@ -1,7 +1,8 @@
 /* global Plotly */
 
 const DATA_URL = "./data/gold_pbf_estados_df_geo.json";
-const GEOJSON_URL = "./data/brazil-states.geojson";
+// Backwards-compatible: some builds may keep geojson at repo root (older layout).
+const GEOJSON_URL = ["./data/brazil-states.geojson", "./brazil-states.geojson"];
 
 function formatNumber(v) {
   if (v === null || v === undefined || Number.isNaN(v)) return "null";
@@ -66,10 +67,20 @@ function sumByYear(rows, metric) {
   return out;
 }
 
-async function loadJson(url) {
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`Failed to load ${url}: ${resp.status}`);
-  return resp.json();
+async function loadJson(urlOrUrls) {
+  const urls = Array.isArray(urlOrUrls) ? urlOrUrls : [urlOrUrls];
+
+  let lastErr = null;
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, { cache: "no-store" });
+      if (!resp.ok) throw new Error(`Failed to load ${url}: ${resp.status}`);
+      return await resp.json();
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error(`Failed to load: ${urls.join(", ")}`);
 }
 
 function normalizeGeoJsonIds(geojson) {
