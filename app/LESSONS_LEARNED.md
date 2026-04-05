@@ -48,6 +48,32 @@
   - Full UF x year grid + linear interpolation/extrapolation fill: `_read_populacao_estados`
 - This is aligned with the requirement: **use official IBGE data and linearly estimate missing years**.
 
+## GitHub Pages: 404s for JSON under /data (and stale JS due to CDN cache)
+
+**Symptoms**
+- `index.html`, `styles.css`, `app.js` served (200), but data files like:
+  - `/getPBFData/app/web/data/gold_pbf_estados_df_geo.json`
+  returned **404** on GitHub Pages, even though they exist in the repo.
+- Additionally, Pages/Fastly sometimes served **stale `app.js`** (old code kept requesting `./data/...`) even after pushes.
+
+**What fixed it (robust)**
+1) **Stop depending on directory paths like `/data/` or `/assets/`**  
+   The deploy workflow now copies the required files directly into the served web roots:
+   - `/app/web/gold_pbf_estados_df_geo.json`
+   - `/app/web/brazil-states.geojson`
+
+2) **Cache-bust JS on Pages**  
+   `app/web/index.html` loads `app.js` with a `?v=<commit>` querystring so Fastly/CDN doesn’t keep an old JS file around.
+
+3) **Confirm with curl**  
+   Verify **200** before debugging the frontend:
+   - `curl -I https://leonardochalhoub.github.io/getPBFData/app/web/gold_pbf_estados_df_geo.json`
+   - `curl -I https://leonardochalhoub.github.io/getPBFData/app/web/brazil-states.geojson`
+
+**Takeaway**
+- “Works locally” can still fail on Pages due to what the Pages *artifact* actually contains + CDN caching.
+- Always validate production URLs with `curl` and add cache-busting for JS when iterating fast.
+
 ## Concrete recommendations to prevent “stuck” sessions
 1. **Use smaller, verifiable commands**
    - Start with a simple request (e.g., fetch one UF or one year range) and print a short summary.
