@@ -26,26 +26,12 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Prepare Pages site (copy app/web → _site, plus root redirect)
+      - name: Prepare Pages site (copy app/web → _site)
         run: |
           rm -rf _site
           mkdir -p _site
+          # Publish the web app at the repository root on GitHub Pages
           cp -a app/web/. _site/
-          # Root redirect so https://<user>.github.io/<repo>/ loads the app
-          cat > _site/index.html <<'EOF'
-          <!doctype html>
-          <html lang="pt-BR">
-            <head>
-              <meta charset="UTF-8" />
-              <meta http-equiv="refresh" content="0; url=./app/web/" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>getPBFData</title>
-            </head>
-            <body>
-              <p>Redirecionando para <a href="./app/web/">app/web</a>…</p>
-            </body>
-          </html>
-          EOF
 
       - name: Upload artifact (_site)
         uses: actions/upload-pages-artifact@v3

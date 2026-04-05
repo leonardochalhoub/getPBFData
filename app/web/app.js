@@ -1,8 +1,24 @@
 /* global Plotly */
 
 const DATA_URL = "./data/gold_pbf_estados_df_geo.json";
-// Backwards-compatible: some builds may keep geojson at repo root (older layout).
+
+// Backwards-compatible:
+// - new layout: both JSON and GeoJSON live under ./data/
+// - older layout: GeoJSON lived at repo root
 const GEOJSON_URL = ["./data/brazil-states.geojson", "./brazil-states.geojson"];
+
+// If the app is served from a subpath (e.g. GitHub Pages /<repo>/app/web/),
+// allow a base override via: ?base=/getPBFData/app/web/
+const BASE = (() => {
+  try {
+    const u = new URL(window.location.href);
+    const b = u.searchParams.get("base");
+    return b ? b.replace(/\/+$/, "") : "";
+  } catch (_) {
+    return "";
+  }
+})();
+const withBase = (p) => (BASE ? `${BASE}/${String(p).replace(/^\.?\//, "")}` : p);
 
 function formatNumber(v) {
   if (v === null || v === undefined || Number.isNaN(v)) return "null";
@@ -703,7 +719,10 @@ async function main() {
   const yearSel = document.getElementById("year");
 
   try {
-    const [rows, geojsonRaw] = await Promise.all([loadJson(DATA_URL), loadJson(GEOJSON_URL)]);
+    const [rows, geojsonRaw] = await Promise.all([
+      loadJson(withBase(DATA_URL)),
+      loadJson(GEOJSON_URL.map(withBase)),
+    ]);
     const geojson = normalizeGeoJsonIds(geojsonRaw);
 
     const years = Array.from(new Set(rows.map((r) => r.Ano))).sort((a, b) => a - b);
