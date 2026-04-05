@@ -1,14 +1,26 @@
-# getPBFData (Python + Delta Lake + Web)
+# getPBFData (Python + Spark + Delta Lake + Web)
 
-Este repositório disponibiliza um pipeline em **Python** para baixar, ingestir e refinar dados públicos relativos aos pagamentos do **Programa Bolsa Família (PBF)**, **Auxílio Brasil** e **Novo Bolsa Família (NBF)**, com foco em **agregações** (por UF/município/ano/mês) e exportação de um *dataset* “gold” para um **web app local (HTML/CSS/JavaScript + Plotly)**.
+Este repositório automatiza a **coleta** e o **processamento** dos dados públicos de pagamentos do:
 
-Os dados são públicos (Portal da Transparência/CGU), porém o formato/volume torna difícil trabalhar manualmente:
+- **Bolsa Família (PBF)**
+- **Auxílio Brasil**
+- **Novo Bolsa Família (NBF)**
 
-- os arquivos são disponibilizados como **ZIPs mensais** contendo CSVs com milhões de linhas
-- o histórico completo desde 2013 pode somar **dezenas/centenas de GB**
-- o pipeline abaixo automatiza download e processamento em camadas (bronze/silver/gold) para facilitar análises
+a partir do **Portal da Transparência (CGU)**, construindo um *lakehouse* local em camadas (**bronze → silver → gold**) e exportando um *snapshot* “pronto para navegador” para um **web app** (HTML/CSS/JavaScript + Plotly).
 
-Fontes (Portal da Transparência):
+## Por que isso existe (e por que não dá para usar Excel)
+
+O Portal disponibiliza os dados como **ZIPs mensais** contendo CSVs com **milhões de linhas**. O histórico desde 2013 pode somar **dezenas/centenas de GB**.
+
+Isso torna inviável (ou extremamente frágil) trabalhar manualmente com ferramentas como Excel/Google Sheets:
+- limite de linhas
+- consumo de memória
+- lentidão/instabilidade
+- dificuldade de repetir o processo (reprodutibilidade)
+
+A proposta aqui é tratar como **Big Data**: baixar, ingerir e refinar em um formato analítico (Delta Lake), com um pipeline reexecutável e verificável.
+
+## Fontes (Portal da Transparência)
 
 - Bolsa Família (pagamentos):  
   https://portaldatransparencia.gov.br/download-de-dados/bolsa-familia-pagamentos/
@@ -16,6 +28,21 @@ Fontes (Portal da Transparência):
   https://portaldatransparencia.gov.br/download-de-dados/auxilio-brasil/
 - Novo Bolsa Família:  
   https://portaldatransparencia.gov.br/download-de-dados/novo-bolsa-familia/
+
+---
+
+## Como os dados fluem (visão geral)
+
+1. **Download** de ZIPs mensais (dados brutos)
+2. **Bronze (Delta)**: ingestão “raw/normalizada”
+3. **Silver (Delta)**: agregações e tabelas intermediárias (UF/município/ano/mês etc.)
+4. **Gold (Delta)**: dataset final (métricas prontas para consumo)
+5. **Export Web (JSON)**: gera um arquivo compacto para o navegador
+6. **Web App**: consome o JSON via HTTP (app estático)
+
+> Importante: o web app **não lê Delta diretamente**. Ele consome um JSON exportado do Gold.
+
+---
 
 ## Estrutura do projeto
 
@@ -28,13 +55,16 @@ Fontes (Portal da Transparência):
 - `exports/web/` — export para o front-end (`gold_pbf_estados_df_geo.json`)
 - `app/web/` — web app local (Plotly + mapa por UF)
 
-> Observação: o front-end usa o arquivo JSON gerado em `exports/web/` (ou a cópia versionada em `app/web/data/`, dependendo do seu fluxo).
+No front-end, o arquivo usado em runtime é:
+- `app/web/data/gold_pbf_estados_df_geo.json`
+
+Ele é uma **cópia/snapshot** do export gerado em `exports/web/`.
 
 ---
 
-# Como rodar. Passos (download → bronze → silver → gold → web)
+# Como rodar (Passo 1..5)
 
-Abaixo um fluxo típico do zero, seguindo a ideia do README legado (Passo 1..4), adaptado para Python + Delta.
+Abaixo um fluxo típico do zero, seguindo a lógica “Passo 1..4” do README legado (da época do R), atualizado para Python + Delta.
 
 ## Pré-requisitos (alto nível)
 
@@ -42,14 +72,14 @@ Abaixo um fluxo típico do zero, seguindo a ideia do README legado (Passo 1..4),
 - Java 11+ (necessário para Spark)
 - Dependências Python: `pyspark`, `delta-spark`, `requests`, `tqdm`, etc.
 
-Como este repositório pode ser executado de diferentes formas (venv/conda/poetry), os comandos abaixo assumem que você já tem o ambiente Python configurado e que vai rodar com `PYTHONPATH=.` quando necessário.
+Os comandos abaixo assumem que você já tem um ambiente Python configurado e que vai rodar com `PYTHONPATH=.` quando necessário.
 
 ---
 
 ## Passo 1 — Baixar os ZIPs (dados brutos)
 
-O script abaixo baixa os ZIPs mensais e salva em `data/source_zips/`.  
-Ele pula arquivos já existentes e valida se o conteúdo baixado é realmente um ZIP (o Portal às vezes retorna HTML mesmo com HTTP 200).
+Baixa ZIPs mensais e salva em `data/source_zips/`.  
+O downloader pula arquivos já existentes e valida se o conteúdo baixado é realmente um ZIP (o Portal às vezes retorna HTML com HTTP 200).
 
 ```bash
 python app/scripts/download_source_zips.py \
@@ -65,22 +95,20 @@ Dica: para baixar só um programa, use `--only pbf` / `--only aux` / `--only nbf
 
 ---
 
-## Passo 2 — Ingestão Bronze (Delta Lake)
+## Passo 2 — Bronze (Delta Lake)
 
-A camada **Bronze** guarda os dados “raw”/normalizados em uma tabela Delta.  
-O comando abaixo lê os ZIPs em `data/source_zips/` e escreve em `lakehouse/bronze/payments`.
+A camada **Bronze** guarda os dados “raw/normalizados” em uma tabela Delta.
 
-O CLI está em `app/src/shared/cli.py`:
+CLI em `app/src/shared/cli.py`:
 
 ```bash
 PYTHONPATH=. python -m app.src.shared.cli ingest-bronze \
   --source-zips-dir data/source_zips \
   --lakehouse-root lakehouse \
-  --batch-size 12
+  --batch-size 2
 ```
 
 Parâmetros úteis:
-
 - `--only-origin PBF,AUX,NBF` para limitar origens
 - `--min-competencia YYYYMM` para começar de um mês específico (ex.: `202301`)
 - `--shuffle-partitions 64` / `--master local[*]` para tuning local
@@ -91,45 +119,39 @@ Parâmetros úteis:
 
 Nesta etapa são construídas tabelas com agregações (por ano/mês e por UF/município), enriquecimentos e padronizações.
 
-Os módulos principais estão em:
-
+Módulos principais:
 - `app/src/silver/total_ano_mes_estados.py`
 - `app/src/silver/total_ano_mes_municipios.py`
 - `app/src/silver/populacao_uf_ano.py`
 - utilitários em `app/src/silver/common.py`
 
-> Nesta base, os scripts de Silver/Gold podem estar implementados como módulos importáveis e/ou scripts a serem chamados.  
+> Observação: nesta base, Silver/Gold podem estar implementados como módulos importáveis e/ou scripts.  
 > Se você já tem um “entrypoint” específico para gerar Silver/Gold, use-o aqui.
 
-Exemplo (caso você esteja rodando como módulo Python — ajuste para o entrypoint existente no seu projeto):
+Exemplo ilustrativo (ajuste conforme o entrypoint real do seu projeto):
 
 ```bash
-# Exemplo ilustrativo (ajuste conforme o entrypoint real do Silver no seu projeto)
 PYTHONPATH=. python -c "from app.src.silver.total_ano_mes_estados import main; main()"
 ```
-
-Se preferir, você pode criar um script `app/scripts/run_silver.py` para orquestrar a execução dos módulos Silver em sequência.
 
 ---
 
 ## Passo 4 — Gold (dataset final)
 
-O dataset Gold é o que o front-end consome (ex.: `pbf_estados_df_geo`).
+O dataset Gold é a base final para consumo analítico e para export ao web.
 
-O gerador principal está em:
-
+Módulo principal:
 - `app/src/gold/pbf_estados_df_geo.py`
 
-Exemplo (ajuste conforme o entrypoint real do seu projeto):
+Exemplo ilustrativo (ajuste conforme o entrypoint real do seu projeto):
 
 ```bash
-# Exemplo ilustrativo (ajuste conforme o entrypoint real do Gold no seu projeto)
 PYTHONPATH=. python -c "from app.src.gold.pbf_estados_df_geo import main; main()"
 ```
 
 ---
 
-## Passo 5 — Exportar Gold para o Web App (JSON compacto)
+## Passo 5 — Exportar Gold para Web (JSON compacto)
 
 Este script lê a tabela Delta Gold e gera um JSON “flat” em `exports/web/`:
 
@@ -140,7 +162,7 @@ PYTHONPATH=. python app/scripts/export_gold_for_web.py
 Saída:
 - `exports/web/gold_pbf_estados_df_geo.json`
 
-Se você quiser visualizar no web app sem mexer no código, copie (ou faça symlink) para `app/web/data/`:
+Para o web app consumir, copie (ou faça symlink) para `app/web/data/`:
 
 ```bash
 cp exports/web/gold_pbf_estados_df_geo.json app/web/data/gold_pbf_estados_df_geo.json
@@ -151,10 +173,10 @@ cp exports/web/gold_pbf_estados_df_geo.json app/web/data/gold_pbf_estados_df_geo
 # Rodar o Web App local (HTML/CSS/JS)
 
 O app fica em `app/web/` e usa Plotly para:
-
 - barras: total Brasil por ano
 - mapa: distribuição por UF
 - alternância Light/Dark
+- downloads (Excel e imagens)
 
 Inicie um servidor local:
 
@@ -167,11 +189,50 @@ Acesse:
 
 ---
 
+# Rodar via container (Web-only)
+
+O web app é **estático** e pode ser servido via **nginx**. Já existe um Dockerfile em `app/web/Dockerfile` que empacota:
+
+- `index.html`, `styles.css`, `app.js`, vendors
+- `app/web/data/*` (JSON exportado do gold + geojson)
+- `brazil-flag.svg`
+
+## Build
+
+Na raiz do repo:
+
+```bash
+docker build -t getpbfdata-web -f app/web/Dockerfile app/web
+```
+
+## Run
+
+```bash
+docker run --rm -p 8080:80 getpbfdata-web
+```
+
+Abra:
+- http://127.0.0.1:8080/
+
+> Nota: este container **não roda o pipeline Spark/Delta**. Ele só serve o snapshot JSON já exportado.
+> Para atualizar os dados, rode o pipeline e reexporte o JSON, depois refaça o build da imagem (ou monte `app/web/data` como volume).
+
+# Rodar via container (Pipeline + Web) — previsto
+
+O caminho “completo” (mais pesado, porém reprodutível) é ter um container/compose que:
+- rode o pipeline (bronze/silver/gold) apontando para volumes com `lakehouse/` e `data/`
+- gere `exports/web/gold_pbf_estados_df_geo.json`
+- copie para `app/web/data/` e sirva o web
+
+> Se você estiver vendo este README no futuro, procure por um `docker-compose.yml` ou uma imagem publicada (ex.: GHCR) que encapsule esses passos.
+
+---
+
 # Observações e validação
 
 - O pipeline usa Spark local com Delta. Em máquinas com pouca RAM, pode ser necessário ajustar memória/partições.
 - Alguns meses/arquivos podem não existir no Portal (o downloader marca como `[MISS]`).
-- O repositório contém scripts auxiliares em `app/scripts/` para checagens e comparações:
+- Scripts auxiliares em `app/scripts/`:
   - `verify_idempotency.py`
   - `verify_gold_population_percapita.py`
   - `gold_metric_nonnull_by_year.py`
