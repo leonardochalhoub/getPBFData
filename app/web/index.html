@@ -20,7 +20,10 @@
     <div class="container">
       <div class="header">
         <div>
-          <h2>Bolsa Família - 2013-2025</h2>
+          <div class="titleRow">
+            <img class="brFlag" src="./brazil-flag.svg" alt="Brasil" />
+            <h2>Bolsa Família - 2013-2025</h2>
+          </div>
           <div class="subtitle">
             Selecione métrica, paleta e ano para comparar o total Brasil (barras) e o mapa por UF.
           </div>
@@ -48,10 +51,10 @@
               <div class="control">
                 <label for="metric">Métrica</label>
                 <select id="metric">
-                  <option value="valor_2021">Valor (R$ bi, deflacionado para 2021)</option>
+                  <option value="valor_2021">Valor (R$ bi, corr. inflação p/ 2021)</option>
                   <option value="valor_nominal">Valor (R$ bi, nominal)</option>
-                  <option value="pbfPerBenef">PBF por beneficiário (R$)</option>
-                  <option value="pbfPerCapita" selected>PBF per capita (R$)</option>
+                  <option value="pbfPerBenef">PBF por beneficiário (R$ corr. inf. p/ 2021)</option>
+                  <option value="pbfPerCapita" selected>PBF per capita (R$ corr. inf. p/ 2021)</option>
                 </select>
               </div>
 
@@ -81,7 +84,7 @@
               </div>
 
               <div class="control">
-                <button id="downloadAllPng" type="button">Baixar mapas (PNG)</button>
+                <button id="downloadAllPng" class="primary" type="button">Baixar mapas (PNG)</button>
               </div>
 
               <div class="muted">

@@ -12,13 +12,17 @@ function formatNumber(v) {
 function metricLabel(metric) {
   switch (metric) {
     case "valor_2021":
-      return "Valor (R$ bi, deflacionado para 2021)";
+      // Short menu label communicating that values were inflation-adjusted to the 2021 price level
+      // (can mean “inflated” or “deflated” depending on the year).
+      return "Valor (R$ bi, corr. inflação p/ 2021)";
     case "valor_nominal":
       return "Valor (R$ bi, nominal)";
+    // Keep per-capita/per-benef labels short for axis titles, but still signal the 2021 price level.
+    // Remove only the “corr.” wording, as requested.
     case "pbfPerBenef":
-      return "PBF por beneficiário (R$)";
+      return "PBF/beneficiário (R$ inf. p/ 2021)";
     case "pbfPerCapita":
-      return "PBF per capita (R$)";
+      return "PBF per capita (R$ inf. p/ 2021)";
     default:
       return metric;
   }
@@ -209,9 +213,14 @@ function renderMap({ rows, metric, colorscale, yearValue, years, geojson }) {
     return `${r.uf}<br>${title}: ${formatNumber(val)}<br>Pop${popSuffix}: ${formatNumber(pop)}`;
   });
 
+  // Shorten + split the AGG title into 2 lines and give it more top margin.
+  // Plotly annotations don't auto-wrap reliably, so we insert a <br>.
   const mapTitle = isAgg
-    ? `Distribuição por UF — acumulado ${years[0]}–${years[years.length - 1]}`
+    ? `Distribuição por UF<br>Acumulado ${years[0]}–${years[years.length - 1]}`
     : `Distribuição por UF — ${year}`;
+
+  const titleFontSize = isAgg ? 16 : 20;
+  const titleY = isAgg ? 1.06 : 1.02;
 
   Plotly.newPlot(
     "mapWrap",
@@ -237,10 +246,8 @@ function renderMap({ rows, metric, colorscale, yearValue, years, geojson }) {
     {
       paper_bgcolor: bg,
       plot_bgcolor: bg,
-      // More top margin so the title is clearly visible in PNG exports
-      // Put the title closer to the map and ensure it is inside the canvas (PNG-safe)
-      margin: { t: 55, r: 10, b: 10, l: 10 },
-      // Make Brazil bigger inside the viewport
+      // More top margin so the 2-line AGG title doesn't get clipped.
+      margin: { t: isAgg ? 96 : 55, r: 10, b: 10, l: 10 },
       geo: {
         fitbounds: "locations",
         visible: false,
@@ -253,12 +260,16 @@ function renderMap({ rows, metric, colorscale, yearValue, years, geojson }) {
           xref: "paper",
           yref: "paper",
           x: 0.5,
-          y: 1.02,
+          y: titleY,
           xanchor: "center",
           yanchor: "bottom",
           showarrow: false,
           text: mapTitle,
-          font: { size: 20, color: textColor },
+          align: "center",
+          bgcolor: "rgba(0,0,0,0)",
+          borderwidth: 0,
+          borderpad: 0,
+          font: { size: titleFontSize, color: textColor },
         },
       ],
       font: { color: textColor },

@@ -63,6 +63,22 @@ h2 {
   letter-spacing: -0.01em;
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* SVG is "HD" by nature; keep it crisp and sized like an icon */
+.brFlag {
+  /* Make it "text-height" and not dominant */
+  height: 1em;
+  width: auto;
+  display: inline-block;
+  flex: 0 0 auto;
+  vertical-align: -0.12em;
+}
+
 .header {
   display: flex;
   flex-wrap: wrap;
