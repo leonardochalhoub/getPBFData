@@ -55,10 +55,30 @@ jobs:
           # 2) Also put them in the legacy root:
           #    /app/web/gold_pbf_estados_df_geo.json
           #    /app/web/brazil-states.geojson
-          cp -a app/web/data/gold_pbf_estados_df_geo.json _site/gold_pbf_estados_df_geo.json
-          cp -a app/web/data/brazil-states.geojson _site/brazil-states.geojson
-          cp -a app/web/data/gold_pbf_estados_df_geo.json _site/app/web/gold_pbf_estados_df_geo.json
-          cp -a app/web/data/brazil-states.geojson _site/app/web/brazil-states.geojson
+          # Some clones/branches may not have the exported dataset committed under app/web/data/.
+          # Prefer app/web/data if present; otherwise fall back to app/web/ (legacy location).
+          if [ -f app/web/data/gold_pbf_estados_df_geo.json ]; then
+            DATA_JSON_SRC="app/web/data/gold_pbf_estados_df_geo.json"
+          elif [ -f app/web/gold_pbf_estados_df_geo.json ]; then
+            DATA_JSON_SRC="app/web/gold_pbf_estados_df_geo.json"
+          else
+            echo "ERROR: gold_pbf_estados_df_geo.json not found in app/web/data/ or app/web/"
+            exit 1
+          fi
+          cp -a "$DATA_JSON_SRC" _site/gold_pbf_estados_df_geo.json
+          cp -a "$DATA_JSON_SRC" _site/app/web/gold_pbf_estados_df_geo.json
+
+          # GeoJSON is committed at app/web/brazil-states.geojson (not under app/web/data/)
+          if [ -f app/web/brazil-states.geojson ]; then
+            GEOJSON_SRC="app/web/brazil-states.geojson"
+          elif [ -f app/web/data/brazil-states.geojson ]; then
+            GEOJSON_SRC="app/web/data/brazil-states.geojson"
+          else
+            echo "ERROR: brazil-states.geojson not found in app/web/ or app/web/data/"
+            exit 1
+          fi
+          cp -a "$GEOJSON_SRC" _site/brazil-states.geojson
+          cp -a "$GEOJSON_SRC" _site/app/web/brazil-states.geojson
 
           echo "=== _site top-level ==="
           ls -la _site | sed -n '1,200p'
