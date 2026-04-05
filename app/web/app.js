@@ -1,11 +1,11 @@
 /* global Plotly */
 
-const DATA_URL = "./assets/gold_pbf_estados_df_geo.json";
+const DATA_URL = "./gold_pbf_estados_df_geo.json";
 
 // Backwards-compatible:
-// - GitHub Pages workaround: publish JSON/GeoJSON under ./assets/ (directory ./data was 404'ing in prod)
-// - older layout: GeoJSON lived at repo root
-const GEOJSON_URL = ["./assets/brazil-states.geojson", "./brazil-states.geojson"];
+// - GitHub Pages: publish JSON/GeoJSON at web root (directory paths were 404'ing in prod)
+// - older layout: GeoJSON lived at repo root (same path)
+const GEOJSON_URL = ["./brazil-states.geojson"];
 
 // If the app is served from a subpath (e.g. GitHub Pages /<repo>/app/web/),
 // allow a base override via: ?base=/getPBFData/app/web/

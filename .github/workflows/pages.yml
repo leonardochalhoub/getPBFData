@@ -38,19 +38,25 @@ jobs:
           mkdir -p _site/app/web
           cp -a app/web/. _site/app/web/
 
-          # Workaround: GitHub Pages is currently returning 404 for everything under /data/
-          # (even though the folder exists locally). Publish the same files under /assets/ instead.
-          rm -rf _site/assets _site/app/web/assets
-          mkdir -p _site/assets _site/app/web/assets
-          cp -a app/web/data/. _site/assets/
-          cp -a app/web/data/. _site/app/web/assets/
+          # Root cause: Pages sometimes served stale/missing directory content (notably /data and /assets).
+          # Make the artifact deterministic by copying the *actual files we need* into the web roots.
+          #
+          # 1) Put the dataset + geojson directly at the web root:
+          #    /gold_pbf_estados_df_geo.json
+          #    /brazil-states.geojson
+          #
+          # 2) Also put them in the legacy root:
+          #    /app/web/gold_pbf_estados_df_geo.json
+          #    /app/web/brazil-states.geojson
+          cp -a app/web/data/gold_pbf_estados_df_geo.json _site/gold_pbf_estados_df_geo.json
+          cp -a app/web/data/brazil-states.geojson _site/brazil-states.geojson
+          cp -a app/web/data/gold_pbf_estados_df_geo.json _site/app/web/gold_pbf_estados_df_geo.json
+          cp -a app/web/data/brazil-states.geojson _site/app/web/brazil-states.geojson
 
-          echo "=== _site contents ==="
+          echo "=== _site top-level ==="
           ls -la _site | sed -n '1,200p'
-          echo "=== _site/assets contents ==="
-          ls -la _site/assets | sed -n '1,200p' || true
-          echo "=== _site/app/web/assets contents ==="
-          ls -la _site/app/web/assets | sed -n '1,200p' || true
+          echo "=== _site/app/web top-level ==="
+          ls -la _site/app/web | sed -n '1,200p'
 
       - name: Upload artifact (_site)
         uses: actions/upload-pages-artifact@v3
