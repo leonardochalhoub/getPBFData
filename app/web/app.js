@@ -3,8 +3,8 @@
 const DATA_URL = "./gold_pbf_estados_df_geo.json";
 
 // Backwards-compatible:
-// - GitHub Pages: publish JSON/GeoJSON at web root (directory paths were 404'ing in prod)
-// - older layout: GeoJSON lived at repo root (same path)
+// - GitHub Pages seems to be serving correctly only from the legacy path (/app/web/),
+//   while the root is intermittently 404. Load from the legacy-relative location.
 const GEOJSON_URL = ["./brazil-states.geojson"];
 
 // If the app is served from a subpath (e.g. GitHub Pages /<repo>/app/web/),
