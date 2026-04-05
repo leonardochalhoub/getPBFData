@@ -32,6 +32,10 @@ jobs:
           mkdir -p _site
           # Publish the web app at the repository root on GitHub Pages
           cp -a app/web/. _site/
+          echo "=== _site contents ==="
+          ls -la _site | sed -n '1,200p'
+          echo "=== _site/data contents ==="
+          ls -la _site/data | sed -n '1,200p' || true
 
       - name: Upload artifact (_site)
         uses: actions/upload-pages-artifact@v3
