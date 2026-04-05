@@ -38,14 +38,19 @@ jobs:
           mkdir -p _site/app/web
           cp -a app/web/. _site/app/web/
 
+          # Workaround: GitHub Pages is currently returning 404 for everything under /data/
+          # (even though the folder exists locally). Publish the same files under /assets/ instead.
+          rm -rf _site/assets _site/app/web/assets
+          mkdir -p _site/assets _site/app/web/assets
+          cp -a app/web/data/. _site/assets/
+          cp -a app/web/data/. _site/app/web/assets/
+
           echo "=== _site contents ==="
           ls -la _site | sed -n '1,200p'
-          echo "=== _site/app/web contents ==="
-          ls -la _site/app/web | sed -n '1,200p'
-          echo "=== _site/data contents ==="
-          ls -la _site/data | sed -n '1,200p' || true
-          echo "=== _site/app/web/data contents ==="
-          ls -la _site/app/web/data | sed -n '1,200p' || true
+          echo "=== _site/assets contents ==="
+          ls -la _site/assets | sed -n '1,200p' || true
+          echo "=== _site/app/web/assets contents ==="
+          ls -la _site/app/web/assets | sed -n '1,200p' || true
 
       - name: Upload artifact (_site)
         uses: actions/upload-pages-artifact@v3
