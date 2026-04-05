@@ -44,6 +44,13 @@ A proposta aqui é tratar como **Big Data**: baixar, ingerir e refinar em um for
 
 ---
 
+## Demo (GitHub Pages)
+
+O web app está publicado em:
+- https://leonardochalhoub.github.io/getPBFData/
+
+> Observação: a URL raiz redireciona para o app em `./app/web/`.
+
 ## Estrutura do projeto
 
 - `app/scripts/` — scripts utilitários (download dos ZIPs, export web, verificações)
