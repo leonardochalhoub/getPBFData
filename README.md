@@ -44,9 +44,9 @@ A proposta aqui é tratar como **Big Data**: baixar, ingerir e refinar em um for
 
 ---
 
-## Demo (GitHub Pages)
+## Versão online (GitHub Pages)
 
-O web app está publicado em:
+O web app está rodando em:
 - https://leonardochalhoub.github.io/getPBFData/
 
 > Observação: a URL raiz redireciona para o app em `./app/web/`.
@@ -202,6 +202,9 @@ Acesse:
 
 Imagem:
 - `leochalhoub/getpbfdata-web:latest`
+
+Página no Docker Hub:
+- https://hub.docker.com/r/leochalhoub/getpbfdata-web/
 
 Rodar:
 ```bash
