@@ -26,16 +26,26 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Prepare Pages site (copy app/web → _site)
+      - name: Prepare Pages site (copy app/web → _site, plus legacy /app/web/ path)
         run: |
           rm -rf _site
           mkdir -p _site
-          # Publish the web app at the repository root on GitHub Pages
+
+          # Primary: publish the web app at the repository root on GitHub Pages
           cp -a app/web/. _site/
+
+          # Legacy: also keep files under /app/web/ so old links still work
+          mkdir -p _site/app/web
+          cp -a app/web/. _site/app/web/
+
           echo "=== _site contents ==="
           ls -la _site | sed -n '1,200p'
+          echo "=== _site/app/web contents ==="
+          ls -la _site/app/web | sed -n '1,200p'
           echo "=== _site/data contents ==="
           ls -la _site/data | sed -n '1,200p' || true
+          echo "=== _site/app/web/data contents ==="
+          ls -la _site/app/web/data | sed -n '1,200p' || true
 
       - name: Upload artifact (_site)
         uses: actions/upload-pages-artifact@v3
