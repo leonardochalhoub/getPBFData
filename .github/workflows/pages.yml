@@ -34,6 +34,10 @@ jobs:
           # Primary: publish the web app at the repository root on GitHub Pages
           cp -a app/web/. _site/
 
+          # Root URL requires a top-level index.html. Some Pages builds were serving /app/web/ but
+          # returning 404 at / and /index.html; make it explicit.
+          cp -a app/web/index.html _site/index.html
+
           # Legacy: also keep files under /app/web/ so old links still work
           mkdir -p _site/app/web
           cp -a app/web/. _site/app/web/
