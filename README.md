@@ -198,6 +198,25 @@ Acesse:
 
 # Rodar via container (Web-only)
 
+## Usar imagem publicada no Docker Hub (recomendado)
+
+Imagem:
+- `leochalhoub/getpbfdata-web:latest`
+
+Rodar:
+```bash
+docker run --rm -p 8080:80 leochalhoub/getpbfdata-web:latest
+```
+
+Abra:
+- http://127.0.0.1:8080/
+
+> A imagem é publicada via GitHub Actions. Para habilitar o push automático, configure os secrets no GitHub:
+> - `DOCKERHUB_USERNAME` = `leochalhoub`
+> - `DOCKERHUB_TOKEN` = Docker Hub access token (Settings → Security → New Access Token)
+
+## Build local (alternativa)
+
 O web app é **estático** e pode ser servido via **nginx**. Já existe um Dockerfile em `app/web/Dockerfile` que empacota:
 
 - `index.html`, `styles.css`, `app.js`, vendors
