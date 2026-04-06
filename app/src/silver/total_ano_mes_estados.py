@@ -43,7 +43,8 @@ def build_total_ano_mes_estados(df_bronze_payments: DataFrame) -> DataFrame:
         DataFrame with columns:
           - Ano, Mes
           - uf, mes_competencia
-          - n (distinct beneficiaries)
+          - n (monthly distinct beneficiaries)
+          - n_ano (annual distinct beneficiaries by (Ano, uf), repeated on each month row)
           - total_estado (sum of ``valor_parcela`` as Decimal)
     """
     df = apply_nov_2021_origin_rule(df_bronze_payments)
@@ -52,14 +53,22 @@ def build_total_ano_mes_estados(df_bronze_payments: DataFrame) -> DataFrame:
     benef_id = F.regexp_replace(F.trim(F.col("nis_favorecido")), r"\\D", "")
     df = df.withColumn("_benef_id", benef_id).where(F.length(F.col("_benef_id")) > 0)
 
+    # Annual distinct beneficiaries by (Ano, uf) computed from payment-level rows.
+    df_year = (
+        df.groupBy("ano", "uf")
+        .agg(F.countDistinct("_benef_id").cast("long").alias("n_ano"))
+        .select(F.col("ano").cast("int").alias("Ano"), "uf", "n_ano")
+    )
+
     out = (
         df.groupBy("mes_competencia", "uf")
         .agg(
-            F.countDistinct("_benef_id").alias("n"),
+            F.countDistinct("_benef_id").cast("long").alias("n"),
             F.sum(F.col("valor_parcela_dec")).alias("total_estado"),
         )
         .transform(with_ano_mes_from_mes_competencia)
-        .select("Ano", "Mes", "uf", "mes_competencia", "n", "total_estado")
+        .join(df_year, on=["Ano", "uf"], how="left")
+        .select("Ano", "Mes", "uf", "mes_competencia", "n", "n_ano", "total_estado")
     )
     return out
 
@@ -88,6 +97,7 @@ def write_total_ano_mes_estados(
     (
         df_out.write.format("delta")
         .mode(mode)
+        .option("overwriteSchema", "true")
         .partitionBy(*partition_by)
         .save(str(paths.silver_root / "total_ano_mes_estados"))
     )

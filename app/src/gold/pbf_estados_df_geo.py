@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Tuple
 
+from app.src.silver.common import LakehousePaths
+
 import requests
 from pyspark.sql import DataFrame, SparkSession, Window, functions as F, types as T
 
@@ -120,6 +122,8 @@ def _ipca_json_to_monthly_index_df(spark: SparkSession, ipca_json: list[dict]) -
     return df.select("dt", "year", "month", "factor")
 
 
+
+
 def build_pbf_estados_df_geo(
     df_total_ano_mes_estados: DataFrame,
     *,
@@ -148,17 +152,24 @@ def build_pbf_estados_df_geo(
           - per-beneficiary and per-capita values (in BRL)
           - geo attributes from ``df_states_geo``
     """
-    # 1) Reduce ano-mes to ano (UF × Ano)
-    df_year = (
+    # 1) Reduce ano-mes to ano (UF × Ano) for values
+    df_year_val = (
         df_total_ano_mes_estados.groupBy("Ano", "uf")
         .agg(
-            # Silver 'n' is monthly distinct beneficiaries. Yearly should be the sum across months,
-            # not the max month, otherwise it undercounts.
-            F.sum(F.col("n")).cast("long").alias("n_benef"),
             (F.sum("total_estado") / F.lit(1e9)).alias("valor_nominal"),
         )
         .join(df_populacao_estados, on=["Ano", "uf"], how="left")
     )
+
+    # 1b) Annual unique beneficiaries from Silver (computed from payment-level rows, repeated on each month row)
+    df_year_benef = (
+        df_total_ano_mes_estados.select("Ano", "uf", "n_ano")
+        .distinct()
+        .withColumnRenamed("n_ano", "n_benef")
+        .withColumn("n_benef", F.col("n_benef").cast("long"))
+    )
+
+    df_year = df_year_val.join(df_year_benef, on=["Ano", "uf"], how="left")
 
     # 2) Inflate to 2021 reais (annual approximation using December deflators)
     df_year = df_year.join(df_deflators_to_2021, on=["Ano"], how="left").withColumn(
@@ -179,13 +190,18 @@ def build_pbf_estados_df_geo(
     max_ano = year_bounds.collect()[0]["max_ano"]
 
     # Aggregated UF row across years (within each UF)
+    #
+    # Important: population is a stock (level), not a flow. Summing population across years is incorrect.
+    # For the aggregated period we use the average population across the years to compute per-capita.
+    #
+    # Note: beneficiaries and values are flows here, so summing across years is expected.
     df_ag = (
         df_year.groupBy("uf")
         .agg(
             F.sum("n_benef").cast("long").alias("n_benef"),
             F.round(F.sum("valor_nominal"), 2).alias("valor_nominal"),
             F.round(F.sum("valor_2021"), 2).alias("valor_2021"),
-            F.sum("populacao").cast("long").alias("populacao"),
+            F.round(F.avg("populacao"), 0).cast("long").alias("populacao"),
         )
         .withColumn("pbfPerBenef", F.round(F.col("valor_2021") * F.lit(1e9) / F.col("n_benef"), 2))
         .withColumn("pbfPerCapita", F.round(F.col("valor_2021") * F.lit(1e9) / F.col("populacao"), 2))
