@@ -1,3 +1,18 @@
+"""
+Gold job: PBF annual state panel with geography and 2021-R$ adjustment.
+
+This module builds the main exported dataset used by the web map/chart: an UF×Year panel
+with beneficiaries, nominal amounts, inflation-adjusted amounts (to Dec/2021 reais), and
+derived metrics (per beneficiary and per capita). It also appends an aggregated UF row
+summing across the observed year range.
+
+Sources:
+  - Payments: Bronze -> Silver ``total_ano_mes_estados`` (derived from official payment ZIPs)
+  - Population: IBGE/SIDRA (Agregados 6579, variável 9324, N3=UF) via Silver ``populacao_uf_ano``
+  - Inflation: BCB/SGS IPCA monthly variation (series 433). Annual deflator uses December
+    index and is normalized so that Dec/2021 == 1.0.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,30 +23,39 @@ import requests
 from pyspark.sql import DataFrame, SparkSession, Window, functions as F, types as T
 
 from app.src.shared.spark import SparkConfig, SparkFactory
-from app.src.silver.common import LakehousePaths
-
 
 BCB_IPCA_SERIES_CODE = 433  # IPCA - variação mensal (%)
 
 
 @dataclass(frozen=True)
 class GoldPaths:
+    """
+    Path helpers for Gold outputs.
+
+    Attributes:
+        lakehouse_root: Root folder of the lakehouse.
+    """
+
     lakehouse_root: Path = Path("lakehouse")
 
     @property
     def gold_root(self) -> Path:
+        """Root directory for Gold tables."""
         return self.lakehouse_root / "gold"
 
     @property
     def silver_total_ano_mes_estados_path(self) -> str:
+        """Delta path for Silver ``total_ano_mes_estados``."""
         return str(self.lakehouse_root / "silver" / "total_ano_mes_estados")
 
     @property
     def silver_populacao_uf_ano_path(self) -> str:
+        """Delta path for Silver ``populacao_uf_ano`` (IBGE population)."""
         return str(self.lakehouse_root / "silver" / "populacao_uf_ano")
 
     @property
     def gold_pbf_estados_df_geo_path(self) -> str:
+        """Delta path for Gold ``pbf_estados_df_geo``."""
         return str(self.gold_root / "pbf_estados_df_geo")
 
 
@@ -39,9 +63,15 @@ def _download_ipca_series_json(*, timeout_s: int = 60) -> list[dict]:
     """
     Download IPCA monthly variation (%) from Banco Central do Brasil (SGS API).
 
-    Endpoint returns a list of:
-      [{"data":"01/01/1980","valor":"6.62"}, ...]
-    where 'valor' is percent change in the month.
+    Args:
+        timeout_s: HTTP timeout in seconds.
+
+    Returns:
+        List of dicts like ``{"data":"01/01/1980","valor":"6.62"}`` where ``valor`` is the
+        percent change in the month.
+
+    Raises:
+        requests.HTTPError: If the API request fails.
     """
     url = f"https://api.bcb.gov.br/dados/serie/bcdata.sgs.{BCB_IPCA_SERIES_CODE}/dados?formato=json"
     r = requests.get(url, timeout=timeout_s)
@@ -51,12 +81,20 @@ def _download_ipca_series_json(*, timeout_s: int = 60) -> list[dict]:
 
 def _ipca_json_to_monthly_index_df(spark: SparkSession, ipca_json: list[dict]) -> DataFrame:
     """
-    Convert monthly variation (%) into a monthly price index where:
-      - index_{2021-12} == 1.0 (reference)
-      - index_t = product_{m=t+1..2021-12} (1 + ipca_m/100)
+    Convert IPCA monthly variation into a monthly multiplicative factor table.
 
-    This lets us inflate a value observed at year t (annual) by joining on year and using
-    the December index for each year.
+    The returned DataFrame contains one row per month with a numeric factor:
+
+        ``factor = 1 + (ipca_pct / 100)``
+
+    A cumulative index is later computed using a windowed cumulative product.
+
+    Args:
+        spark: Spark session used to create the DataFrame.
+        ipca_json: JSON payload as returned by :func:`_download_ipca_series_json`.
+
+    Returns:
+        DataFrame with columns ``dt, year, month, factor``.
     """
     schema = T.StructType(
         [
@@ -90,21 +128,25 @@ def build_pbf_estados_df_geo(
     df_deflators_to_2021: DataFrame,
 ) -> DataFrame:
     """
-    Gold table: pbf_estados_df_geo
+    Build the Gold table ``pbf_estados_df_geo``.
 
-    Port of legacy Passo3_postProc.R for the *state* part, with geo join.
+    This is a port of legacy ``Passo3_postProc.R`` for the *state* part, adding a geo join.
 
-    Inputs:
-    - silver total_ano_mes_estados (Ano, Mes, uf, n, total_estado, ...)
-    - df_populacao_estados: (Ano, uf, populacao)
-    - df_states_geo: (uf, name_state, geom/geo columns...) -> we keep minimal subset
-    - df_deflators_to_2021: (Ano, deflator_to_2021)
+    Args:
+        df_total_ano_mes_estados: Silver ``total_ano_mes_estados`` DataFrame.
+        df_populacao_estados: Population by UF/year (``Ano, uf, populacao``).
+        df_states_geo: Geo attributes keyed by UF abbreviation (must contain ``uf``).
+        df_deflators_to_2021: Annual deflators (``Ano, deflator_to_2021``) built from IPCA
+            using December indices normalized to Dec/2021.
 
-    Output:
-      Ano, uf, n_benef,
-      valor_nominal (billions of BRL in the original year),
-      valor_2021 (billions of BRL inflated to 2021 reais using IPCA from BCB/SGS),
-      populacao, pbfPerBenef, pbfPerCapita, <geo cols>
+    Returns:
+        DataFrame with one row per UF/year plus an aggregated row per UF across the observed
+        year range, containing:
+          - beneficiaries (``n_benef``)
+          - nominal value (billions BRL, original year)
+          - value adjusted to 2021 reais (billions BRL)
+          - per-beneficiary and per-capita values (in BRL)
+          - geo attributes from ``df_states_geo``
     """
     # 1) Reduce ano-mes to ano (UF × Ano)
     df_year = (
@@ -182,15 +224,24 @@ def build_pbf_estados_df_geo(
 
 def _build_year_december_deflators_to_2021(spark: SparkSession, *, end_year: int) -> DataFrame:
     """
-    Build a DataFrame:
-      year, deflator_to_2021
+    Build annual deflators to convert values into Dec/2021 reais.
 
-    We approximate annual adjustment by using the December cumulative index for each year.
-    deflator_to_2021 = index_2021_12 / index_year_12
-    With index_2021_12 normalized to 1.0, this is 1 / index_year_12.
+    The approach uses the monthly IPCA factors (series 433) to compute a cumulative index.
+    Annual adjustment is approximated using each year's December index:
 
-    Note: This differs slightly from priceR's adjust_for_inflation behavior (which can use exact dates),
-    but it is a consistent, reproducible approach using monthly IPCA.
+        ``deflator_to_2021 = index_dec_2021 / index_dec_year``
+
+    Since the index is later normalized so that Dec/2021 == 1.0, this becomes:
+
+        ``deflator_to_2021 = 1 / index_dec_year``
+
+    Args:
+        spark: Spark session.
+        end_year: Last year we need a deflator for (inclusive).
+
+    Returns:
+        DataFrame ``(Ano:int, deflator_to_2021:double)`` covering years 2013..end_year
+        (forward-filled if the latest December is not yet available).
     """
     ipca_json = _download_ipca_series_json()
     df_monthly = _ipca_json_to_monthly_index_df(spark, ipca_json)
@@ -272,15 +323,24 @@ def _download_ibge_uf_population_estimates(
     timeout_s: int = 60,
 ) -> list[dict]:
     """
-    Download yearly UF population estimates from IBGE Agregados API (SIDRA).
+    Download yearly UF population estimates from IBGE SIDRA Agregados API.
 
-    Using:
-      agregado=6579 (População residente estimada)
-      variavel=9324
-      localidades=N3[all] (UF level)
-      periodos=start_year-end_year (inclusive range)
+    Note:
+        This helper is retained for backwards compatibility, but the preferred approach
+        is to read population from Silver ``populacao_uf_ano`` (which already interpolates
+        gaps). New code should generally avoid downloading here.
 
-    Returns the raw JSON list from IBGE.
+    Args:
+        start_year: First year (inclusive).
+        end_year: Last year (inclusive).
+        timeout_s: HTTP timeout in seconds.
+
+    Returns:
+        Raw JSON list from IBGE.
+
+    Raises:
+        ValueError: If ``start_year > end_year``.
+        requests.HTTPError: If the API request fails.
     """
     if start_year > end_year:
         raise ValueError(f"start_year must be <= end_year. Got {start_year=} {end_year=}")
@@ -298,11 +358,14 @@ def _download_ibge_uf_population_estimates(
 
 def _ibge_population_json_to_df(spark: SparkSession, ibge_json: list[dict]) -> DataFrame:
     """
-    Convert IBGE Agregados JSON into Spark DF (Ano, uf, populacao).
+    Convert IBGE Agregados JSON into a Spark DataFrame (Ano, uf, populacao).
 
-    IBGE UF ids are numeric strings:
-      11=RO, 12=AC, ... 53=DF
-    We map them to standard UF abbreviations.
+    Args:
+        spark: Spark session.
+        ibge_json: Raw payload from :func:`_download_ibge_uf_population_estimates`.
+
+    Returns:
+        Spark DataFrame with schema ``(Ano:int, uf:string, populacao:double)``.
     """
     uf_id_to_sigla = {
         "11": "RO",
@@ -375,13 +438,16 @@ def _read_populacao_estados_from_silver(
     end_year: int,
 ) -> DataFrame:
     """
-    Read UF population from the *silver* lakehouse table (Delta):
-      lakehouse/silver/populacao_uf_ano
+    Read UF population from the Silver Delta table.
 
-    This table is expected to already be complete for every UF×Ano in [start_year, end_year]
-    (filled from IBGE + linear interpolation/extrapolation in the silver job).
+    Args:
+        spark: Spark session.
+        silver_populacao_uf_ano_path: Delta path to ``silver/populacao_uf_ano``.
+        start_year: First year (inclusive).
+        end_year: Last year (inclusive).
 
-    We still filter to the gold job's observed year range to keep joins tight.
+    Returns:
+        Filtered DataFrame with columns ``Ano, uf, populacao``.
     """
     df = spark.read.format("delta").load(silver_populacao_uf_ano_path)
     return df.where((F.col("Ano") >= F.lit(start_year)) & (F.col("Ano") <= F.lit(end_year))).select("Ano", "uf", "populacao")
@@ -389,12 +455,17 @@ def _read_populacao_estados_from_silver(
 
 def _load_states_geo_stub(spark: SparkSession) -> DataFrame:
     """
-    Placeholder for state geo data.
+    Return a minimal placeholder for state geo data.
 
-    In R this comes from geobr::read_state(year=2019). In this PySpark pipeline,
-    we need an equivalent source (GeoJSON/Shapefile/Parquet with geometry) already available.
+    In the legacy R implementation this comes from ``geobr::read_state(year=2019)``.
+    In this Python pipeline, we join geo attributes elsewhere (e.g. in the web layer).
+    This stub keeps the Gold schema stable if no geo dataset is provided.
 
-    For now, return a minimal df with uf only; the join will keep schema stable.
+    Args:
+        spark: Spark session.
+
+    Returns:
+        Empty DataFrame with a single ``uf`` column.
     """
     schema = T.StructType([T.StructField("uf", T.StringType(), False)])
     return spark.createDataFrame([], schema=schema)
@@ -406,6 +477,14 @@ def write_pbf_estados_df_geo(
     mode: str = "overwrite",
     partition_by: Tuple[str, ...] = ("Ano",),
 ) -> None:
+    """
+    Materialize ``pbf_estados_df_geo`` into the lakehouse Gold area.
+
+    Args:
+        lakehouse_root: Lakehouse root directory.
+        mode: Spark write mode (default ``overwrite``).
+        partition_by: Delta partition columns (default partitions by year label).
+    """
     spark = SparkFactory.create(SparkConfig(app_name="gold-pbf-estados-df-geo", master="local[*]", shuffle_partitions=64))
     paths = GoldPaths(lakehouse_root=lakehouse_root)
 

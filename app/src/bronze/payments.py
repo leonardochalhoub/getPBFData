@@ -1,3 +1,19 @@
+"""
+Bronze ingestion for PBF/Auxílio Brasil/NBF payment ZIPs.
+
+This module implements the "Bronze" layer of the lakehouse: reading raw monthly ZIP
+archives containing CSV files and writing their contents to a partitioned Delta table.
+
+Key features:
+- Reads ZIPs one-by-one by extracting the inner CSV to a temporary directory (Spark reads lazily).
+- Normalizes column names to ASCII snake_case to be Delta-friendly.
+- Applies the known Nov/2021 header swap fix (legacy behavior).
+- Adds metadata columns (origin, ano, mes, competencia, ingestion timestamps, provenance).
+- For 2021-11, generates an extra ``origin="PBF_AUX_SUM"`` partition with summed values.
+
+The public surface of this module is :class:`ZipPaymentsBronzeIngestor`.
+"""
+
 from __future__ import annotations
 
 import re
@@ -6,8 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
 
-from pyspark.sql import DataFrame, SparkSession, functions as F, types as T
-
+from pyspark.sql import DataFrame, SparkSession, functions as F
 
 _MONTH_RE = re.compile(r"(?P<year>20\d{2})[_-]?(?P<month>0[1-9]|1[0-2])", re.IGNORECASE)
 _SOURCE_RE = re.compile(r"^(?P<src>PBF|AUX_BR|AUX|NBF)[_-]", re.IGNORECASE)
@@ -15,20 +30,56 @@ _SOURCE_RE = re.compile(r"^(?P<src>PBF|AUX_BR|AUX|NBF)[_-]", re.IGNORECASE)
 
 @dataclass(frozen=True)
 class BronzePaths:
+    """
+    Path helpers for the Bronze layer.
+
+    Attributes:
+        source_zips_dir: Folder containing the raw monthly ZIP files.
+        bronze_root: Root folder under which Bronze Delta tables and temporary extraction
+            directories are created.
+    """
+
     source_zips_dir: Path
     bronze_root: Path
 
     @staticmethod
     def for_lakehouse(source_zips_dir: Path, lakehouse_root: Path) -> "BronzePaths":
+        """
+        Build paths given a lakehouse root.
+
+        Args:
+            source_zips_dir: Folder containing ZIP downloads.
+            lakehouse_root: Root folder of the lakehouse.
+
+        Returns:
+            A :class:`BronzePaths` pointing to ``lakehouse_root/bronze``.
+        """
         return BronzePaths(source_zips_dir=source_zips_dir, bronze_root=lakehouse_root / "bronze")
 
     @property
     def bronze_payments_path(self) -> str:
+        """
+        Delta path for the Bronze payments table.
+
+        Returns:
+            String path used by Spark's ``.save()`` / ``.load()``.
+        """
         return str(self.bronze_root / "payments")
 
 
 @dataclass(frozen=True)
 class IngestOptions:
+    """
+    Options controlling how CSVs are read.
+
+    Attributes:
+        encoding: Input encoding (the official files are usually latin1).
+        sep: Field separator (official files match R's ``read_csv2``; default ``;``).
+        header: Whether the first row is a header row.
+        infer_schema: Whether Spark should infer schema (disabled by default for stability).
+        bad_records_path: Optional Spark "badRecordsPath" for malformed rows.
+    """
+
     encoding: str = "latin1"
     sep: str = ";"  # read_csv2
     header: bool = True
@@ -37,33 +88,40 @@ class IngestOptions:
 
 
 class ZipPaymentsBronzeIngestor:
-    """Ingests monthly ZIP files into a Delta Lake Bronze table.
+    """
+    Ingest monthly ZIP files into a partitioned Bronze Delta table.
 
-    Strategy:
-    - Extracts the inner CSV to a temporary folder on disk (one ZIP at a time), reads it with Spark,
-      then deletes the extracted file(s) after a successful Delta write.
-    - Normalizes column names to Delta-friendly ASCII snake_case.
-    - Fixes Nov/2021 Bolsa Família header swap issue (mes_competencia/mes_referencia).
-    - Adds metadata:
-        - ano, mes, competencia (yyyymm inferred from filename)
-        - origin (AUX/PBF/NBF inferred from filename prefix)
-        - source_zip, source_inner, ingest_ts
-    - Writes using partitioned Delta layout: partitionBy(origin, ano, mes). Ingestion is idempotent
-      per partition via dynamic partition overwrite at batch scope.
+    The ingestion groups input ZIPs by (year, month) extracted from the filenames, reads
+    each inner CSV with Spark, adds metadata columns, and writes to a Delta table
+    partitioned by ``origin``, ``ano`` and ``mes``.
 
-    Special rule:
-    - For 2021-11, there are two program files (PBF and AUX). We create an extra origin
-      "PBF_AUX_SUM" for that month containing the summed values (numeric columns summed,
-      non-numeric columns taken as first non-null). This matches the legacy behavior where
-      2021-11 is treated as a single combined dataset.
+    Notes:
+        - Spark is lazy: we must not delete extracted CSVs until *after* the Delta write succeeds.
+        - The process is idempotent *per batch* using dynamic partition overwrite.
+        - Nov/2021 has special handling (header swap + optional PBF/AUX summed partition).
+
+    Args:
+        spark: Active Spark session.
+        paths: Bronze path configuration.
+        opts: Options that control the CSV reader behavior.
     """
 
     def __init__(self, spark: SparkSession, paths: BronzePaths, opts: IngestOptions = IngestOptions()):
+        """Create an ingestor instance."""
         self.spark = spark
         self.paths = paths
         self.opts = opts
 
     def _list_zip_files(self) -> list[Path]:
+        """
+        List ZIP files in the configured source directory.
+
+        Returns:
+            Sorted list of ``.zip`` file paths.
+
+        Raises:
+            FileNotFoundError: If the source directory does not exist.
+        """
         zdir = self.paths.source_zips_dir
         if not zdir.exists():
             raise FileNotFoundError(f"Source zip dir not found: {zdir}")
@@ -71,6 +129,18 @@ class ZipPaymentsBronzeIngestor:
 
     @staticmethod
     def _month_from_name(path: Path) -> Tuple[int, int]:
+        """
+        Infer (year, month) from a ZIP filename.
+
+        Args:
+            path: ZIP file path.
+
+        Returns:
+            Tuple ``(year, month)``.
+
+        Raises:
+            ValueError: If the filename does not contain an expected ``YYYYMM`` pattern.
+        """
         m = _MONTH_RE.search(path.name)
         if not m:
             raise ValueError(f"Cannot infer year/month from filename: {path.name}")
@@ -78,7 +148,20 @@ class ZipPaymentsBronzeIngestor:
 
     @staticmethod
     def _origin_from_name(path: Path) -> str:
-        """Infer origin from zip filename prefix (AUX/PBF/NBF)."""
+        """
+        Infer program origin from the ZIP filename prefix.
+
+        Examples of expected prefixes:
+            - ``PBF_...`` -> ``PBF``
+            - ``AUX_...`` / ``AUX_BR_...`` -> ``AUX``
+            - ``NBF_...`` -> ``NBF``
+
+        Args:
+            path: ZIP file path.
+
+        Returns:
+            Normalized origin string. If no prefix matches, returns ``"UNK"``.
+        """
         m = _SOURCE_RE.match(path.name)
         if not m:
             return "UNK"
@@ -93,11 +176,25 @@ class ZipPaymentsBronzeIngestor:
 
     @staticmethod
     def _find_inner_csv(zip_path: Path) -> str:
+        """
+        Find the most likely inner CSV file name in a ZIP archive.
+
+        If the ZIP contains multiple CSVs (e.g. documentation + data), the largest CSV
+        by uncompressed size is selected.
+
+        Args:
+            zip_path: Path to the ZIP archive.
+
+        Returns:
+            The chosen inner CSV member name.
+
+        Raises:
+            RuntimeError: If no CSV member is found.
+        """
         with zipfile.ZipFile(zip_path) as zf:
             names = [n for n in zf.namelist() if n.lower().endswith(".csv")]
         if not names:
             raise RuntimeError(f"No CSV found inside {zip_path}")
-        # Prefer a single csv; otherwise pick the largest (common case: docs + csv)
         if len(names) == 1:
             return names[0]
         with zipfile.ZipFile(zip_path) as zf:
@@ -105,12 +202,20 @@ class ZipPaymentsBronzeIngestor:
         return sized[0][0]
 
     def _read_zip_csv(self, zip_path: Path) -> Tuple[DataFrame, str]:
-        """Extract inner CSV to a temp folder, read with Spark, then delete the extracted CSV.
+        """
+        Extract the inner CSV to disk and create a Spark DataFrame over it.
 
-        Why:
-        - Reading huge CSVs from an in-memory RDD creates giant Spark tasks and can deadlock.
-        - This keeps disk usage bounded: we extract one CSV at a time then remove it after the
-          Spark read has loaded it.
+        Important:
+            This function does **not** delete the extracted CSV. Spark will read the file
+            later (lazy evaluation) when an action is triggered (the Delta write). Cleanup
+            is performed after the write succeeds.
+
+        Args:
+            zip_path: Path to the monthly ZIP archive.
+
+        Returns:
+            Tuple ``(df, inner_name)`` where ``df`` is a DataFrame reading from the extracted
+            CSV and ``inner_name`` is the original member name inside the ZIP.
         """
         inner = self._find_inner_csv(zip_path)
 
@@ -145,7 +250,19 @@ class ZipPaymentsBronzeIngestor:
 
     @staticmethod
     def _normalize_cols(df: DataFrame) -> DataFrame:
-        """Normalize to Delta-friendly snake_case ASCII column names."""
+        """
+        Normalize column names to Delta-friendly ASCII snake_case.
+
+        The raw government files contain inconsistent casing, whitespace and accents.
+        This routine removes accents, replaces non-alphanumerics with underscores and
+        lowercases the result.
+
+        Args:
+            df: Input DataFrame.
+
+        Returns:
+            DataFrame with renamed columns.
+        """
         renamed = df
         for c in df.columns:
             # Upper + trim first (some files have inconsistent case/spaces)
@@ -179,12 +296,20 @@ class ZipPaymentsBronzeIngestor:
 
     @staticmethod
     def _fix_nov_2021_header_swap(df: DataFrame, year: int, month: int) -> DataFrame:
-        """R fix: In Nov/2021 Bolsa Familia the first two cols are swapped:
-        'MÊS COMPETÊNCIA' and 'MÊS REFERÊNCIA'. We fix by swapping/renaming.
+        """
+        Fix the Nov/2021 "header swap" issue for Bolsa Família.
 
-        Note: we normalize columns to ASCII snake_case before this runs, so we handle:
-        - mes_competencia
-        - mes_referencia
+        In 2021-11 (PBF) the source files shipped with the first two columns swapped:
+        ``MÊS COMPETÊNCIA`` and ``MÊS REFERÊNCIA``. After normalization, these become
+        ``mes_competencia`` and ``mes_referencia``. This method swaps them back.
+
+        Args:
+            df: Input DataFrame.
+            year: Year inferred from filename.
+            month: Month inferred from filename.
+
+        Returns:
+            DataFrame with corrected column names when applicable.
         """
         if year == 2021 and month == 11:
             cols = set(df.columns)
@@ -203,6 +328,21 @@ class ZipPaymentsBronzeIngestor:
         origin_allow: Optional[set[str]] = None,
         min_year_month: Optional[tuple[int, int]] = None,
     ) -> None:
+        """
+        Ingest all ZIPs found in the source directory.
+
+        ZIP files are grouped by (year, month). Each batch writes multiple months using
+        dynamic partition overwrite so rerunning a batch overwrites only the partitions
+        present in that batch.
+
+        Args:
+            batch_size: How many (year, month) groups to process per Spark write action.
+            origin_allow: Optional set restricting which origins to ingest (e.g. ``{\"PBF\"}``).
+            min_year_month: Optional minimum (year, month) inclusive; older months are skipped.
+
+        Raises:
+            RuntimeError: If no ZIP files are found.
+        """
         zip_files = self._list_zip_files()
         if not zip_files:
             raise RuntimeError(f"No zip files found in {self.paths.source_zips_dir}")

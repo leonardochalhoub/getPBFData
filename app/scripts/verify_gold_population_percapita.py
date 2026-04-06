@@ -1,16 +1,27 @@
-from __future__ import annotations
 """
-Verify gold table has population and per-capita values after switching to silver population.
+Verify Gold population and per-capita fields are populated.
+
+This script loads the Gold Delta table ``gold/pbf_estados_df_geo`` and reports how many
+rows have null ``populacao`` and ``pbfPerCapita``.
 
 Run:
-  PYTHONPATH=. python app/scripts/verify_gold_population_percapita.py
+  ``PYTHONPATH=. python app/scripts/verify_gold_population_percapita.py``
 """
 
-from app.src.silver.common import LakehousePaths, build_delta_spark
+from __future__ import annotations
+
 from pyspark.sql import functions as F
+
+from app.src.silver.common import LakehousePaths, build_delta_spark
 
 
 def main() -> None:
+    """
+    Print null-count diagnostics and sample rows for numeric years only.
+
+    Raises:
+        Any Spark errors encountered during read/aggregation.
+    """
     spark = build_delta_spark("verify-gold-pbf-estados-df-geo")
     paths = LakehousePaths()
 

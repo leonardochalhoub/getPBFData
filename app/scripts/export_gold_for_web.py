@@ -1,13 +1,18 @@
-from __future__ import annotations
 """
-Export gold layer (pbf_estados_df_geo) into a compact JSON for a local webpage.
+Export Gold data to a compact JSON file consumed by the local web dashboard.
 
-Output:
-  exports/web/gold_pbf_estados_df_geo.json
+This script reads the Gold Delta table ``gold/pbf_estados_df_geo`` and writes a compact
+JSON file containing only the fields needed by the frontend.
+
+Outputs:
+  - ``exports/web/gold_pbf_estados_df_geo.json``
+  - ``app/web/gold_pbf_estados_df_geo.json``
 
 Run:
-  PYTHONPATH=. python app/scripts/export_gold_for_web.py
+  ``PYTHONPATH=. python app/scripts/export_gold_for_web.py``
 """
+
+from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -18,6 +23,17 @@ from app.src.silver.common import LakehousePaths, build_delta_spark
 
 
 def main() -> None:
+    """
+    Read ``gold/pbf_estados_df_geo`` and export per-year UF rows to JSON.
+
+    Notes:
+        - Excludes aggregated rows (where Ano is not purely numeric).
+        - Casts numeric metrics to ``double`` for stable JSON output.
+        - Drops 2026+ to keep the web dashboard range consistent.
+
+    Raises:
+        Any Spark/IO exceptions that occur during read/write.
+    """
     spark = build_delta_spark("export-gold-for-web")
     paths = LakehousePaths()
 
@@ -25,8 +41,6 @@ def main() -> None:
     df = spark.read.format("delta").load(gold_path)
 
     # Keep only per-year rows (exclude "Agregado ...")
-    # NOTE: Spark rlike uses Java regex. Here we want: start + digits + end.
-    # Using a normal python string avoids confusion with raw-string escaping.
     df = df.where(F.col("Ano").cast("string").rlike("^\\d+$")).withColumn("Ano", F.col("Ano").cast("int"))
 
     # Drop 2026 from the web export series (requested for the dashboard)
