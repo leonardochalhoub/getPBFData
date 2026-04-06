@@ -297,6 +297,28 @@ button.primary {
   line-height: 1.4;
 }
 
+.countersBox {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 10px;
+  background: color-mix(in srgb, var(--panel-bg), var(--page-bg) 25%);
+  box-shadow: var(--shadow-sm);
+}
+
+.counterRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.tinyMuted {
+  margin-top: 8px;
+  font-size: 11px;
+  opacity: 0.9;
+}
+
 code {
   background: var(--code-bg);
   padding: 1px 4px;

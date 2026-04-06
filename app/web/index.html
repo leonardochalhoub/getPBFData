@@ -93,6 +93,19 @@
                   <code>app/web/data/gold_pbf_estados_df_geo.json</code>
                 </div>
               </div>
+
+              <div class="muted countersBox" style="margin-top: 10px">
+                <div class="kicker">Contadores</div>
+                <div class="counterRow">
+                  <span>Visitas:</span> <b id="visitCount">—</b>
+                </div>
+                <div class="counterRow">
+                  <span>Downloads:</span> <b id="downloadCount">—</b>
+                </div>
+                <div class="tinyMuted">
+                  Atualiza em alguns segundos.
+                </div>
+              </div>
             </div>
           </div>
 
@@ -206,6 +219,9 @@
       </div>
     </div>
 
+    <script>
+      window.COUNTERS_API_BASE = "https://getpbfdata-counters.leonardochalhoub.workers.dev";
+    </script>
     <script src="./app.js?v=4b75c28"></script>
   </body>
 </html>

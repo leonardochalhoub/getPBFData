@@ -1,5 +1,95 @@
 /* global Plotly */
 
+const COUNTERS_API_BASE = (() => {
+  // Optional override:
+  //   ?counters=https://your-worker.your-subdomain.workers.dev
+  // Otherwise, set window.COUNTERS_API_BASE in index.html if desired.
+  try {
+    const u = new URL(window.location.href);
+    const p = u.searchParams.get("counters");
+    if (p) return p.replace(/\/+$/, "");
+  } catch (_) {
+    // ignore
+  }
+  if (typeof window !== "undefined" && window.COUNTERS_API_BASE) {
+    return String(window.COUNTERS_API_BASE).replace(/\/+$/, "");
+  }
+  return ""; // empty => counters disabled (graceful)
+})();
+
+async function countersFetch(path, { method = "GET" } = {}) {
+  if (!COUNTERS_API_BASE) return null;
+  const url = `${COUNTERS_API_BASE}${path}`;
+  const resp = await fetch(url, { method, headers: { "content-type": "application/json" } });
+  if (!resp.ok) throw new Error(`Counters API error ${resp.status} for ${path}`);
+  return await resp.json();
+}
+
+async function initCounters() {
+  const visitEl = document.getElementById("visitCount");
+  const dlEl = document.getElementById("downloadCount");
+  if (!visitEl && !dlEl) return null;
+
+  const render = (data) => {
+    const v = data && typeof data.visits === "number" ? data.visits : 0;
+    const d = data && typeof data.downloads === "number" ? data.downloads : 0;
+    if (visitEl) visitEl.textContent = formatInt(v);
+    if (dlEl) dlEl.textContent = formatInt(d);
+  };
+
+  // If not configured, show placeholder and bail.
+  if (!COUNTERS_API_BASE) {
+    if (visitEl) visitEl.textContent = "—";
+    if (dlEl) dlEl.textContent = "—";
+    return null;
+  }
+
+  // Load initial counts
+  try {
+    const data = await countersFetch("/api/counters", { method: "GET" });
+    if (data) render(data);
+  } catch (_) {
+    // ignore
+  }
+
+  // Increment visits once per page load
+  try {
+    const data = await countersFetch("/api/visit", { method: "POST" });
+    if (data) render(data);
+  } catch (_) {
+    // ignore
+  }
+
+  // Poll every 10s to reflect other visitors' changes
+  const poll = async () => {
+    try {
+      const data = await countersFetch("/api/counters", { method: "GET" });
+      if (data) render(data);
+    } catch (_) {
+      // ignore
+    }
+  };
+  const interval = setInterval(poll, 10_000);
+
+  async function incrementDownloads(by = 1) {
+    // API increments by 1; call multiple times if needed.
+    const n = Math.max(1, Math.trunc(by));
+    for (let i = 0; i < n; i += 1) {
+      try {
+        const data = await countersFetch("/api/download", { method: "POST" });
+        if (data) render(data);
+      } catch (_) {
+        // ignore
+      }
+    }
+  }
+
+  return {
+    incrementDownloads,
+    stop: () => clearInterval(interval),
+  };
+}
+
 const DATA_URL = "./gold_pbf_estados_df_geo.json";
 
 const GEOJSON_URL = ["./brazil-states.geojson"];
@@ -533,6 +623,12 @@ function renderMap({ rows, metric, colorscale, yearValue, years, geojson }) {
 function initBuildDate() {
   const el = document.getElementById("buildDate");
   if (el) el.textContent = new Date().toLocaleDateString("pt-BR");
+}
+
+function formatInt(v) {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(Math.trunc(n));
 }
 
 function setLoading(isLoading) {
@@ -1253,6 +1349,8 @@ async function main() {
   setLoading(true);
   setError("");
 
+  const counters = await initCounters();
+
   const metricSel = document.getElementById("metric");
   const colorscaleSel = document.getElementById("colorscale");
   const yearSel = document.getElementById("year");
@@ -1289,8 +1387,9 @@ async function main() {
       renderMap({ rows, metric, colorscale, yearValue, years, geojson });
     }
 
-    function onDownload() {
+    async function onDownload() {
       downloadExcelComplete({ rows, years });
+      if (counters && counters.incrementDownloads) await counters.incrementDownloads(1);
     }
 
     async function onDownloadAllPng() {
@@ -1302,6 +1401,7 @@ async function main() {
       setError("");
       try {
         await downloadAllMapsZip({ rows, years, metric, colorscale, geojson });
+        if (counters && counters.incrementDownloads) await counters.incrementDownloads(1);
       } catch (e) {
         setError(e && e.stack ? e.stack : String(e));
       } finally {
