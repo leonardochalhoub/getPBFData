@@ -112,12 +112,15 @@
      - select only needed columns,
      - write a deterministic output file into `exports/web/...`.
 8. **Don’t paste HTML-escaped shell commands into bash**
-   - If `&&` turns into `&&` (HTML-escaped), bash will error with e.g.: `bash: syntax error near unexpected token \`;&'`.
+   - If `&&` becomes `&&` (or the command contains `;&`), bash will error with e.g.:
+     - `bash: syntax error near unexpected token \`;&'`
+   - This happens when a chat/HTML layer escapes special characters and you copy/paste the escaped text into the terminal.
    - Workarounds:
+     - Re-type the operators manually so it is literally `&&` (and never `&&`).
      - Prefer `;` instead of `&&` when you’re copy/pasting from chat (works for servers *and* file ops):  
        `cd exports/web; python -m http.server 8000 --bind 127.0.0.1`  
        `cp -f exports/web/index.html app/web/index.html; cp -f exports/web/app.js app/web/app.js; cp -f exports/web/styles.css app/web/styles.css`
-     - Or re-type operators manually (ensure it is literally `&&`, not `&&`).
+     - Avoid very long chained commands in one paste; run as multiple commands to reduce copy/paste corruption.
 9. **Avoid heredocs if the channel can HTML-escape them**
    - If `<<'PY'` gets converted to `<<'PY'` (HTML escape), the shell will interpret it literally and the heredoc won’t start.
    - In those environments, prefer:
