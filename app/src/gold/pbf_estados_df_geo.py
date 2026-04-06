@@ -106,14 +106,11 @@ def build_pbf_estados_df_geo(
       valor_2021 (billions of BRL inflated to 2021 reais using IPCA from BCB/SGS),
       populacao, pbfPerBenef, pbfPerCapita, <geo cols>
     """
-    # 1) Reduce ano-mes to ano: mean(n) and sum(total_estado)
-    # Keep both:
-    # - valor_nominal: billions of BRL in the original year (nominal)
-    # - valor_2021: billions of BRL adjusted to 2021 (IPCA official, via BCB SGS series 433)
+    # 1) Reduce ano-mes to ano (UF × Ano)
     df_year = (
         df_total_ano_mes_estados.groupBy("Ano", "uf")
         .agg(
-            F.avg("n").alias("n_benef"),
+            F.max("n").cast("long").alias("n_benef"),
             (F.sum("total_estado") / F.lit(1e9)).alias("valor_nominal"),
         )
         .join(df_populacao_estados, on=["Ano", "uf"], how="left")
@@ -137,13 +134,14 @@ def build_pbf_estados_df_geo(
     min_ano = year_bounds.collect()[0]["min_ano"]
     max_ano = year_bounds.collect()[0]["max_ano"]
 
+    # Aggregated UF row across years (within each UF)
     df_ag = (
         df_year.groupBy("uf")
         .agg(
-            F.round(F.avg("n_benef"), 0).alias("n_benef"),
+            F.sum("n_benef").cast("long").alias("n_benef"),
             F.round(F.sum("valor_nominal"), 2).alias("valor_nominal"),
             F.round(F.sum("valor_2021"), 2).alias("valor_2021"),
-            F.round(F.avg("populacao"), 0).alias("populacao"),
+            F.sum("populacao").cast("long").alias("populacao"),
         )
         .withColumn("pbfPerBenef", F.round(F.col("valor_2021") * F.lit(1e9) / F.col("n_benef"), 2))
         .withColumn("pbfPerCapita", F.round(F.col("valor_2021") * F.lit(1e9) / F.col("populacao"), 2))

@@ -2,13 +2,9 @@
 
 const DATA_URL = "./gold_pbf_estados_df_geo.json";
 
-// Backwards-compatible:
-// - GitHub Pages seems to be serving correctly only from the legacy path (/app/web/),
-//   while the root is intermittently 404. Load from the legacy-relative location.
 const GEOJSON_URL = ["./brazil-states.geojson"];
 
-// If the app is served from a subpath (e.g. GitHub Pages /<repo>/app/web/),
-// allow a base override via: ?base=/getPBFData/app/web/
+// Allow a base override via: ?base=/getPBFData/app/web/
 const BASE = (() => {
   try {
     const u = new URL(window.location.href);
@@ -20,10 +16,16 @@ const BASE = (() => {
 })();
 const withBase = (p) => (BASE ? `${BASE}/${String(p).replace(/^\.?\//, "")}` : p);
 
-function formatNumber(v) {
+function formatNumber(v, { decimals = 2 } = {}) {
   if (v === null || v === undefined || Number.isNaN(v)) return "null";
   if (Math.abs(v) >= 1e9) return v.toExponential(3);
-  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(v);
+
+  // Force a dot-free, pt-BR style formatting with a fixed number of decimals.
+  // decimals=0 is used for counts like population/beneficiaries.
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(v);
 }
 
 function metricLabel(metric) {
@@ -37,9 +39,9 @@ function metricLabel(metric) {
     // Keep per-capita/per-benef labels short for axis titles, but still signal the 2021 price level.
     // Remove only the “corr.” wording, as requested.
     case "pbfPerBenef":
-      return "PBF/beneficiário (R$ inf. p/ 2021)";
+      return "PBF/benef (R$ 2021)";
     case "pbfPerCapita":
-      return "PBF per capita (R$ inf. p/ 2021)";
+      return "PBF per capita (R$ 2021)";
     default:
       return metric;
   }
@@ -65,7 +67,6 @@ function sumByYear(rows, metric) {
     const v = r[metric];
 
     // Keep all years visible even if values are null.
-    // But don't silently turn "all nulls in a year" into a 0 bar (that hides the data issue).
     if (!sums.has(y)) sums.set(y, { sum: 0, n: 0 });
 
     if (v !== null && v !== undefined && !Number.isNaN(v)) {
@@ -75,10 +76,40 @@ function sumByYear(rows, metric) {
     }
   }
 
-  // Convert to Map<year, value|null> where null means "no non-null values"
   const out = new Map();
-  for (const [y, obj] of sums.entries()) {
-    out.set(y, obj.n === 0 ? null : obj.sum);
+  for (const [y, obj] of sums.entries()) out.set(y, obj.n === 0 ? null : obj.sum);
+  return out;
+}
+
+function brazilByYear(rows, metric) {
+  // For pbfPerCapita/pbfPerBenef we use valor_2021 as numerator because those metrics are defined
+  // in 2021-adjusted R$ in the dataset.
+  if (metric === "valor_2021" || metric === "valor_nominal") return sumByYear(rows, metric);
+
+  const acc = new Map(); // year -> {num, denom, n}
+  for (const r of rows) {
+    const y = r.Ano;
+    if (!acc.has(y)) acc.set(y, { num: 0, denom: 0, n: 0 });
+
+    const v2021 = r.valor_2021;
+    if (v2021 === null || v2021 === undefined || Number.isNaN(v2021)) continue;
+
+    let denomVal = null;
+    if (metric === "pbfPerCapita") denomVal = r.populacao;
+    else if (metric === "pbfPerBenef") denomVal = r.n_benef;
+    else continue;
+
+    if (denomVal === null || denomVal === undefined || Number.isNaN(denomVal) || denomVal <= 0) continue;
+
+    const cur = acc.get(y);
+    cur.num += v2021 * 1e9; // back to R$
+    cur.denom += denomVal;
+    cur.n += 1;
+  }
+
+  const out = new Map();
+  for (const [y, o] of acc.entries()) {
+    out.set(y, o.n === 0 || o.denom === 0 ? null : o.num / o.denom);
   }
   return out;
 }
@@ -125,18 +156,19 @@ function getReverseScale(colorscale) {
 function renderBar({ rows, years, metric }) {
   const isDark = document.body.classList.contains("dark");
 
-  // Dark-mode tuned palette for bars (high contrast, colorblind-friendly-ish)
   const barColor = isDark ? "#60a5fa" : "#2b6cb0";
   const textColor = isDark ? "rgba(232, 238, 249, 0.92)" : "#111";
   const gridColor = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
   const bg = isDark ? "#0f172a" : "#ffffff";
 
-  const sums = sumByYear(rows, metric);
+  const sums = brazilByYear(rows, metric);
   const x = years;
   const y = years.map((yy) => (sums.get(yy) === undefined ? null : sums.get(yy)));
 
   // Text labels above each bar
-  const text = y.map((v) => (v === null || v === undefined || Number.isNaN(v) ? "" : formatNumber(v)));
+  const text = y.map((v) =>
+    v === null || v === undefined || Number.isNaN(v) ? "" : formatNumber(v, { decimals: 2 })
+  );
 
   Plotly.newPlot(
     "barWrap",
@@ -149,7 +181,7 @@ function renderBar({ rows, years, metric }) {
         text,
         textposition: "outside",
         cliponaxis: false,
-        hovertemplate: "Ano=%{x}<br>Valor=%{y}<extra></extra>",
+        hovertemplate: "Ano=%{x}<br>Valor=%{text}<extra></extra>",
       },
     ],
     {
@@ -184,6 +216,130 @@ function renderBar({ rows, years, metric }) {
   );
 }
 
+const UF_TO_REGIAO = {
+  AC: "Norte",
+  AL: "Nordeste",
+  AM: "Norte",
+  AP: "Norte",
+  BA: "Nordeste",
+  CE: "Nordeste",
+  DF: "Centro-Oeste",
+  ES: "Sudeste",
+  GO: "Centro-Oeste",
+  MA: "Nordeste",
+  MG: "Sudeste",
+  MS: "Centro-Oeste",
+  MT: "Centro-Oeste",
+  PA: "Norte",
+  PB: "Nordeste",
+  PE: "Nordeste",
+  PI: "Nordeste",
+  PR: "Sul",
+  RJ: "Sudeste",
+  RN: "Nordeste",
+  RO: "Norte",
+  RR: "Norte",
+  RS: "Sul",
+  SC: "Sul",
+  SE: "Nordeste",
+  SP: "Sudeste",
+  TO: "Norte",
+};
+
+const REGIOES_ORDER = ["Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul"];
+
+function beneficiariesByRegionYear(rows) {
+  // Beneficiaries by Região and year (sum of UFs in the region).
+  const byReg = new Map(); // regiao -> Map(year -> sum)
+  for (const r of rows) {
+    const y = r.Ano;
+    const uf = r.uf;
+    if (typeof y !== "number") continue;
+    if (!uf) continue;
+
+    const reg = UF_TO_REGIAO[uf];
+    if (!reg) continue;
+
+    const b = r.n_benef;
+    if (b === null || b === undefined || Number.isNaN(b)) continue;
+
+    if (!byReg.has(reg)) byReg.set(reg, new Map());
+    const m = byReg.get(reg);
+    m.set(y, (m.get(y) || 0) + b);
+  }
+  return byReg;
+}
+
+function renderBeneficiaries({ rows, years }) {
+  const isDark = document.body.classList.contains("dark");
+
+  const textColor = isDark ? "rgba(232, 238, 249, 0.92)" : "#111";
+  const gridColor = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
+  const bg = isDark ? "#0f172a" : "#ffffff";
+
+  const byReg = beneficiariesByRegionYear(rows);
+
+  // Fixed palette (stable across renders)
+  const colors = {
+    Norte: isDark ? "#60a5fa" : "#2563eb",
+    Nordeste: isDark ? "#34d399" : "#059669",
+    "Centro-Oeste": isDark ? "#fbbf24" : "#d97706",
+    Sudeste: isDark ? "#f472b6" : "#db2777",
+    Sul: isDark ? "#a78bfa" : "#7c3aed",
+  };
+
+  const traces = REGIOES_ORDER.filter((r) => byReg.has(r)).map((reg) => {
+    const m = byReg.get(reg);
+    const y = years.map((yy) => (m.has(yy) ? m.get(yy) : null));
+    const text = y.map((v) => (v === null ? "" : formatNumber(v, { decimals: 0 })));
+    return {
+      type: "scatter",
+      mode: "lines+markers",
+      name: reg,
+      x: years,
+      y,
+      line: { color: colors[reg] || "#888", width: 3 },
+      marker: { color: colors[reg] || "#888", size: 6 },
+      text,
+      hovertemplate: "Região=%{fullData.name}<br>Ano=%{x}<br>Beneficiários=%{text}<extra></extra>",
+    };
+  });
+
+  Plotly.newPlot(
+    "benefWrap",
+    traces,
+    {
+      paper_bgcolor: bg,
+      plot_bgcolor: bg,
+      margin: { t: 10, r: 10, b: 70, l: 90 },
+      legend: { orientation: "h", x: 0, y: -0.25, xanchor: "left", yanchor: "top", font: { color: textColor } },
+      yaxis: {
+        title: "Beneficiários (Região)",
+        rangemode: "tozero",
+        automargin: true,
+        gridcolor: gridColor,
+        zerolinecolor: gridColor,
+        tickfont: { color: textColor },
+        titlefont: { color: textColor },
+      },
+      xaxis: {
+        title: "Ano",
+        type: "category",
+        tickmode: "array",
+        tickvals: years,
+        ticktext: years.map(String),
+        tickangle: -45,
+        automargin: true,
+        gridcolor: "rgba(0,0,0,0)",
+        tickfont: { color: textColor },
+        titlefont: { color: textColor },
+      },
+      font: { color: textColor },
+    },
+    { displayModeBar: false, responsive: true }
+  );
+}
+
 function renderMap({ rows, metric, colorscale, yearValue, years, geojson }) {
   const isDark = document.body.classList.contains("dark");
 
@@ -196,27 +352,59 @@ function renderMap({ rows, metric, colorscale, yearValue, years, geojson }) {
 
   const reverseScale = getReverseScale(colorscale);
 
-  const rowsYear = isAgg ? rows : rows.filter((r) => r.Ano === year);
+  const rowsNumericYears = rows.filter((r) => typeof r.Ano === "number");
+  const rowsYear = isAgg ? rowsNumericYears : rowsNumericYears.filter((r) => r.Ano === year);
 
-  // Aggregate per UF when isAgg=true; otherwise pass through the year slice.
+  // Aggregate per UF when isAgg=true.
+  // For valor_* we can sum. For per-capita/per-benef in AGG, the denominator should be the
+  // simple average across YEARS (one observation per year), not a sum across years.
   const byUf = new Map();
   for (const r of rowsYear) {
     const uf = r.uf;
     if (!byUf.has(uf)) {
       byUf.set(uf, {
         uf,
-        metricSum: 0,
+        num2021: 0, // sum(valor_2021 * 1e9) across years
+        denom: null, // computed at the end as avg(pop) or avg(n_benef) across years
+        metricSum: 0, // for additive metrics
         metricN: 0,
+        _popByYear: new Map(),
+        _benefByYear: new Map(),
         popLast: null,
         popLastYear: -Infinity,
       });
     }
     const acc = byUf.get(uf);
 
-    const v = r[metric];
-    if (v !== null && v !== undefined && !Number.isNaN(v)) {
-      acc.metricSum += v;
-      acc.metricN += 1;
+    if (metric === "valor_2021" || metric === "valor_nominal") {
+      const v = r[metric];
+      if (v !== null && v !== undefined && !Number.isNaN(v)) {
+        acc.metricSum += v;
+        acc.metricN += 1;
+      }
+    } else if (metric === "pbfPerCapita" || metric === "pbfPerBenef") {
+      // For AGG ratio metrics we want an interpretable "average yearly intensity".
+      // So we compute the AGG value as:
+      //   mean_y( valor_2021(y)*1e9 / denom(y) )
+      // NOT as sum(valor_2021)/avg(denom), which scales with the number of years.
+      const v2021 = r.valor_2021;
+      if (v2021 === null || v2021 === undefined || Number.isNaN(v2021)) continue;
+
+      if (metric === "pbfPerCapita") {
+        const p = r.populacao;
+        if (p !== null && p !== undefined && !Number.isNaN(p) && p > 0) {
+          acc._popByYear.set(r.Ano, p);
+          acc.metricSum += (v2021 * 1e9) / p;
+          acc.metricN += 1;
+        }
+      } else {
+        const b = r.n_benef;
+        if (b !== null && b !== undefined && !Number.isNaN(b) && b > 0) {
+          acc._benefByYear.set(r.Ano, b);
+          acc.metricSum += (v2021 * 1e9) / b;
+          acc.metricN += 1;
+        }
+      }
     }
 
     // For hover: show population from the most recent year present.
@@ -228,22 +416,59 @@ function renderMap({ rows, metric, colorscale, yearValue, years, geojson }) {
     }
   }
 
+  // Finalize denom (average across years) + also compute avg denominators for hover transparency.
+  for (const acc of byUf.values()) {
+    const popVals = Array.from(acc._popByYear.values());
+    const benefVals = Array.from(acc._benefByYear.values());
+
+    acc.avgPop = popVals.length === 0 ? null : popVals.reduce((a, b) => a + b, 0) / popVals.length;
+    acc.avgBenef = benefVals.length === 0 ? null : benefVals.reduce((a, b) => a + b, 0) / benefVals.length;
+
+    if (metric === "pbfPerCapita") acc.denom = acc.avgPop || 0;
+    else if (metric === "pbfPerBenef") acc.denom = acc.avgBenef || 0;
+    else acc.denom = 0;
+  }
+
   const rowsUf = Array.from(byUf.values()).sort((a, b) => a.uf.localeCompare(b.uf));
   const locations = rowsUf.map((r) => r.uf);
-  const z = rowsUf.map((r) => (r.metricN === 0 ? null : r.metricSum));
+
+  const z = rowsUf.map((r) => {
+    if (r.metricN === 0) return null;
+    if (metric === "valor_2021" || metric === "valor_nominal") return r.metricSum;
+    // For ratio metrics in AGG we store the sum of yearly per-capita values in metricSum.
+    // The plotted/hovered value is the mean: metricSum / metricN.
+    return r.metricSum / r.metricN;
+  });
+
   const hover = rowsUf.map((r) => {
     const label = metricLabel(metric);
-    const val = r.metricN === 0 ? null : r.metricSum;
+    const val =
+      r.metricN === 0
+        ? null
+        : metric === "valor_2021" || metric === "valor_nominal"
+          ? r.metricSum
+          : r.metricSum / r.metricN;
     const pop = r.popLast;
     const popSuffix = r.popLastYear > -Infinity ? ` (ano ${r.popLastYear})` : "";
-    const title = isAgg ? `${label} (acumulado)` : label;
-    return `${r.uf}<br>${title}: ${formatNumber(val)}<br>Pop${popSuffix}: ${formatNumber(pop)}`;
+
+    // For AGG, show the *average yearly* denominators used in the calculation (not sums).
+    const benefLine =
+      metric === "pbfPerBenef"
+        ? `<br>Benef (média): ${formatNumber(r.avgBenef, { decimals: 0 })}`
+        : "";
+    const popAvgLine =
+      metric === "pbfPerCapita" && isAgg
+        ? `<br>Pop (média): ${formatNumber(r.avgPop, { decimals: 0 })}`
+        : "";
+
+    const title = isAgg ? `${label} (média anual)` : label;
+    return `${r.uf}<br>${title}: ${formatNumber(val, { decimals: 2 })}${benefLine}${popAvgLine}<br>Pop${popSuffix}: ${formatNumber(pop, { decimals: 0 })}`;
   });
 
   // Shorten + split the AGG title into 2 lines and give it more top margin.
   // Plotly annotations don't auto-wrap reliably, so we insert a <br>.
   const mapTitle = isAgg
-    ? `Distribuição por UF<br>Acumulado ${years[0]}–${years[years.length - 1]}`
+    ? `Distribuição por UF<br>Média anual (${years[0]}–${years[years.length - 1]})`
     : `Distribuição por UF — ${year}`;
 
   const titleFontSize = isAgg ? 16 : 20;
@@ -328,7 +553,11 @@ function safeFileToken(s) {
 }
 
 function computeMapRows({ rowsYear, years, metric, yearValue }) {
-  // Aggregate per UF (sum), plus last known population for hover/export
+  // Aggregate per UF for export (sum for additive metrics; weighted ratio for per-capita/per-benef).
+  //
+  // For the AGG (acumulado) export, we avoid summing population/beneficiaries across years.
+  // Instead, we use the AVERAGE denominator across years (per UF), which is easier to interpret
+  // as an "average intensity over the period" measure.
   const byUf = new Map();
 
   for (const r of rowsYear) {
@@ -338,18 +567,50 @@ function computeMapRows({ rowsYear, years, metric, yearValue }) {
         uf,
         metricSum: 0,
         metricN: 0,
+        num2021: 0,
+        benefSum: 0,
+        benefN: 0,
+        popSum: 0,
+        popN: 0,
         popLast: null,
         popLastYear: -Infinity,
       });
     }
     const acc = byUf.get(uf);
 
-    const v = r[metric];
-    if (v !== null && v !== undefined && !Number.isNaN(v)) {
-      acc.metricSum += v;
-      acc.metricN += 1;
+    if (metric === "valor_2021" || metric === "valor_nominal") {
+      const v = r[metric];
+      if (v !== null && v !== undefined && !Number.isNaN(v)) {
+        acc.metricSum += v;
+        acc.metricN += 1;
+      }
+    } else if (metric === "pbfPerCapita" || metric === "pbfPerBenef") {
+      const v2021 = r.valor_2021;
+      if (v2021 === null || v2021 === undefined || Number.isNaN(v2021)) continue;
+
+      // For AGG ratio metrics we export the same definition used in the map:
+      // average of yearly per-capita / per-beneficiary.
+      // We still collect denominators per-year for transparency columns.
+      if (metric === "pbfPerBenef") {
+        const b = r.n_benef;
+        if (b !== null && b !== undefined && !Number.isNaN(b) && b > 0) {
+          if (!acc._benefByYear) acc._benefByYear = new Map();
+          acc._benefByYear.set(r.Ano, b);
+          acc.metricSum += (v2021 * 1e9) / b;
+          acc.metricN += 1;
+        }
+      } else {
+        const p = r.populacao;
+        if (p !== null && p !== undefined && !Number.isNaN(p) && p > 0) {
+          if (!acc._popByYear) acc._popByYear = new Map();
+          acc._popByYear.set(r.Ano, p);
+          acc.metricSum += (v2021 * 1e9) / p;
+          acc.metricN += 1;
+        }
+      }
     }
 
+    // Track latest population for context/hover.
     if (r.populacao !== null && r.populacao !== undefined && !Number.isNaN(r.populacao)) {
       if (r.Ano >= acc.popLastYear) {
         acc.popLastYear = r.Ano;
@@ -362,17 +623,44 @@ function computeMapRows({ rowsYear, years, metric, yearValue }) {
 
   return Array.from(byUf.values())
     .sort((a, b) => a.uf.localeCompare(b.uf))
-    .map((r) => ({
-      UF: r.uf,
-      Ano: yearValue === "AGG" ? `AGG_${years[0]}_${years[years.length - 1]}` : Number(yearValue),
-      Metrica: metric,
-      MetricaLabel: label,
-      Valor: r.metricN === 0 ? null : r.metricSum,
-      Populacao: r.popLast,
-      PopulacaoAno: r.popLastYear > -Infinity ? r.popLastYear : null,
-    }));
-}
+    .map((r) => {
+      let val = null;
 
+      if (r.metricN !== 0) {
+        if (metric === "valor_2021" || metric === "valor_nominal") {
+          val = r.metricSum;
+        } else {
+          // ratio metrics: average of yearly per-capita / per-beneficiary
+          val = r.metricN === 0 ? null : r.metricSum / r.metricN;
+        }
+      }
+
+      const base = {
+        Ano: yearValue === "AGG" ? `AGG_${years[0]}_${years[years.length - 1]}` : Number(yearValue),
+        UF: r.uf,
+        Metrica: metric,
+        MetricaLabel: label,
+        Valor: val,
+      };
+
+      // Report the denominator used for transparency
+      if (metric === "pbfPerBenef") {
+        const vals = r._benefByYear ? Array.from(r._benefByYear.values()) : [];
+        base.Beneficiarios = vals.length === 0 ? null : vals.reduce((a, b) => a + b, 0) / vals.length;
+      }
+      if (metric === "pbfPerCapita") {
+        // For consistency with the definition "average of yearly denominators",
+        // also export the average yearly population as the denominator used.
+        const vals = r._popByYear ? Array.from(r._popByYear.values()) : [];
+        base.Populacao = vals.length === 0 ? null : vals.reduce((a, b) => a + b, 0) / vals.length;
+      } else {
+        // For other metrics, keep latest population only as context
+        base.Populacao = r.popLast;
+      }
+
+      return base;
+    });
+}
 function sheetNameFor(metric, kind) {
   // Excel sheet name limit: 31 chars
   const base = {
@@ -386,14 +674,102 @@ function sheetNameFor(metric, kind) {
   return `${base}_${suffix}`.slice(0, 31);
 }
 
+function buildPopulationTab({ wb, rows, years }) {
+  // Population series used in the metrics (UF x Ano), plus documentation.
+  // Source: IBGE "População residente estimada" (SIDRA Agregados API, agregado 6579, variável 9324, localidades N3).
+  // In the pipeline, silver layer fills missing years using linear interpolation/extrapolation when necessary.
+  const intro = [
+    {
+      Campo: "Fonte principal",
+      Valor:
+        "IBGE - SIDRA (API de Agregados) - População residente estimada (agregado 6579, variável 9324, localidades N3=UF).",
+    },
+    {
+      Campo: "Como foi estimada quando necessário",
+      Valor:
+        "Quando a série não está disponível para algum ano, a tabela silver/populacao_uf_ano aplica preenchimento linear (interpolação/extrapolação) para completar UF×Ano no intervalo de anos do dataset.",
+    },
+    {
+      Campo: "Observação",
+      Valor:
+        "Para o 'Acumulado' (AGG) em métricas per capita/per beneficiário, o denominador não deve ser somado ao longo dos anos. Neste Excel usamos a MÉDIA anual do denominador no período (média da população ou média de beneficiários por UF).",
+    },
+  ];
+
+  // Build UF x Ano population table from the rows.
+  const popByUfYear = new Map(); // key `${uf}|${ano}` -> pop
+  for (const r of rows) {
+    if (r.Ano === null || r.Ano === undefined || typeof r.Ano !== "number") continue;
+    const uf = r.uf;
+    const ano = r.Ano;
+    const pop = r.populacao;
+    if (!uf || pop === null || pop === undefined || Number.isNaN(pop)) continue;
+    popByUfYear.set(`${uf}|${ano}`, pop);
+  }
+
+  const ufs = Array.from(new Set(rows.map((r) => r.uf))).sort((a, b) => a.localeCompare(b));
+
+  const table = [];
+  for (const uf of ufs) {
+    for (const ano of years) {
+      const pop = popByUfYear.get(`${uf}|${ano}`) ?? null;
+      table.push({ UF: uf, Ano: ano, Populacao: pop });
+    }
+  }
+
+  const sheet = XLSX.utils.book_new();
+  // We'll append as 2 sections: intro (key-value) then table below.
+  const wsIntro = XLSX.utils.json_to_sheet(intro, { skipHeader: false });
+  XLSX.utils.sheet_add_aoa(wsIntro, [[""], [""], ["UF", "Ano", "Populacao"]], { origin: -1 });
+  XLSX.utils.sheet_add_json(wsIntro, table, { origin: -1, skipHeader: true });
+
+  XLSX.utils.book_append_sheet(wb, wsIntro, "Populacao");
+}
+
+function buildInflationFactorsTab({ wb, rows, years }) {
+  // Inflation factors to 2021 price level.
+  // Source: BCB/SGS IPCA monthly variation series (code 433).
+  // Method: build monthly cumulative index, take December index by year, normalize 2021-12 = 1.0,
+  // and compute deflator_to_2021 = index_2021_12 / index_year_12 (annual approximation).
+  const intro = [
+    { Campo: "Fonte", Valor: "Banco Central do Brasil (SGS) - IPCA variação mensal (%), série 433." },
+    {
+      Campo: "Método (resumo)",
+      Valor:
+        "Constrói índice mensal cumulativo a partir de (1 + IPCA/100). Usa o índice de dezembro de cada ano; normaliza para que dez/2021=1.0. Fator anual = índice_dez/2021 ÷ índice_dez/ano.",
+    },
+    {
+      Campo: "Uso no dataset",
+      Valor: "valor_2021 = valor_nominal × deflator_to_2021 (em R$ bi). Métricas per capita/per beneficiário usam valor_2021 convertido para R$.",
+    },
+  ];
+
+  // We don't have deflator in the JSON, so we embed a reproducible reference:
+  // the pipeline computes it in app/src/gold/pbf_estados_df_geo.py via _build_year_december_deflators_to_2021().
+  const refs = [
+    { Campo: "Código (pipeline)", Valor: "app/src/gold/pbf_estados_df_geo.py::_build_year_december_deflators_to_2021" },
+    {
+      Campo: "Endpoint",
+      Valor: "https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json",
+    },
+  ];
+
+  const ws = XLSX.utils.json_to_sheet([...intro, ...refs]);
+  XLSX.utils.book_append_sheet(wb, ws, "Inflacao_Fatores");
+}
+
 function buildExcelWorkbookAll({ rows, years }) {
   const wb = XLSX.utils.book_new();
+
+  // Add documentation tabs first for easy access.
+  buildPopulationTab({ wb, rows, years });
+  buildInflationFactorsTab({ wb, rows, years });
 
   const metrics = ["valor_2021", "valor_nominal", "pbfPerBenef", "pbfPerCapita"];
 
   for (const metric of metrics) {
     // Bars sheet: Brazil totals per year
-    const sums = sumByYear(rows, metric);
+    const sums = brazilByYear(rows, metric);
     const barRows = years.map((y) => ({
       Ano: y,
       Metrica: metric,
@@ -405,13 +781,16 @@ function buildExcelWorkbookAll({ rows, years }) {
     // Map sheet: All years + AGG
     const mapAllRows = [];
 
+    // Only numeric-year rows (exclude backend "Agregado ..." rows)
+    const rowsNumericYears = rows.filter((r) => typeof r.Ano === "number");
+
     for (const y of years) {
-      const rowsYear = rows.filter((r) => r.Ano === y);
+      const rowsYear = rowsNumericYears.filter((r) => r.Ano === y);
       mapAllRows.push(...computeMapRows({ rowsYear, years, metric, yearValue: String(y) }));
     }
 
-    // Aggregated across all years
-    mapAllRows.push(...computeMapRows({ rowsYear: rows, years, metric, yearValue: "AGG" }));
+    const rowsAllYears = years.flatMap((yy) => rowsNumericYears.filter((r) => r.Ano === yy));
+    mapAllRows.push(...computeMapRows({ rowsYear: rowsAllYears, years, metric, yearValue: "AGG" }));
 
     XLSX.utils.book_append_sheet(
       wb,
@@ -512,7 +891,7 @@ async function downloadAllMapsZip({
       const gridColor = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
       const bg = isDark ? "#0f172a" : "#ffffff";
 
-      const sums = sumByYear(rows, metricKey);
+      const sums = brazilByYear(rows, metricKey);
       const x = years;
       const y = years.map((yy) => (sums.get(yy) === undefined ? null : sums.get(yy)));
       const text = y.map((v) => (v === null || v === undefined || Number.isNaN(v) ? "" : formatNumber(v)));
@@ -578,18 +957,35 @@ async function downloadAllMapsZip({
       const byUf = new Map();
       for (const r of rowsYear) {
         const uf = r.uf;
-        if (!byUf.has(uf)) byUf.set(uf, { uf, metricSum: 0, metricN: 0 });
+        if (!byUf.has(uf)) byUf.set(uf, { uf, metricSum: 0, metricN: 0, num2021: 0, denom: 0 });
         const acc = byUf.get(uf);
-        const v = r[metricKey];
-        if (v !== null && v !== undefined && !Number.isNaN(v)) {
-          acc.metricSum += v;
+
+        if (metricKey === "valor_2021" || metricKey === "valor_nominal") {
+          const v = r[metricKey];
+          if (v !== null && v !== undefined && !Number.isNaN(v)) {
+            acc.metricSum += v;
+            acc.metricN += 1;
+          }
+        } else if (metricKey === "pbfPerCapita" || metricKey === "pbfPerBenef") {
+          const v2021 = r.valor_2021;
+          if (v2021 === null || v2021 === undefined || Number.isNaN(v2021)) continue;
+
+          const denomVal = metricKey === "pbfPerCapita" ? r.populacao : r.n_benef;
+          if (denomVal === null || denomVal === undefined || Number.isNaN(denomVal) || denomVal <= 0) continue;
+
+          acc.num2021 += v2021 * 1e9;
+          acc.denom += denomVal;
           acc.metricN += 1;
         }
       }
 
       const rowsUf = Array.from(byUf.values()).sort((a, b) => a.uf.localeCompare(b.uf));
       const locations = rowsUf.map((r) => r.uf);
-      const z = rowsUf.map((r) => (r.metricN === 0 ? null : r.metricSum));
+      const z = rowsUf.map((r) => {
+        if (r.metricN === 0) return null;
+        if (metricKey === "valor_2021" || metricKey === "valor_nominal") return r.metricSum;
+        return r.denom === 0 ? null : r.num2021 / r.denom;
+      });
 
       const mapTitle = isAgg
         ? `Distribuição por UF — acumulado ${years[0]}–${years[years.length - 1]}`
@@ -725,11 +1121,14 @@ async function main() {
     ]);
     const geojson = normalizeGeoJsonIds(geojsonRaw);
 
-    const years = Array.from(new Set(rows.map((r) => r.Ano))).sort((a, b) => a - b);
+    // Exclude the "Agregado ..." rows coming from the backend gold table
+    const years = Array.from(new Set(rows.filter((r) => typeof r.Ano === "number").map((r) => r.Ano))).sort(
+      (a, b) => a - b
+    );
 
-    // Build year dropdown dynamically + add an aggregate option (all years in the dataset).
+    // Build year dropdown dynamically + add an aggregate option.
     yearSel.innerHTML =
-      `<option value="AGG">Acumulado (${years[0]}–${years[years.length - 1]})</option>` +
+      `<option value="AGG">Média anual (${years[0]}–${years[years.length - 1]})</option>` +
       years.map((y) => `<option value="${y}">${y}</option>`).join("");
     yearSel.value = years[years.length - 1];
 
@@ -743,6 +1142,7 @@ async function main() {
       const yearValue = yearSel.value;
 
       renderBar({ rows, years, metric });
+      renderBeneficiaries({ rows, years });
       renderMap({ rows, metric, colorscale, yearValue, years, geojson });
     }
 

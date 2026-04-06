@@ -36,6 +36,7 @@ def main() -> None:
     df = df.select(
         "Ano",
         "uf",
+        F.col("n_benef").cast("double").alias("n_benef"),
         F.col("valor_nominal").cast("double").alias("valor_nominal"),
         F.col("valor_2021").cast("double").alias("valor_2021"),
         F.col("populacao").cast("double").alias("populacao"),
@@ -46,11 +47,14 @@ def main() -> None:
     # Collect to driver (small dataset: 27 UFs * years)
     rows = [r.asDict(recursive=True) for r in df.orderBy("Ano", "uf").collect()]
 
-    out_path = Path("exports/web/gold_pbf_estados_df_geo.json")
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
-
-    print("WROTE", str(out_path), "rows", len(rows))
+    out_paths = [
+        Path("exports/web/gold_pbf_estados_df_geo.json"),
+        Path("app/web/gold_pbf_estados_df_geo.json"),
+    ]
+    for out_path in out_paths:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
+        print("WROTE", str(out_path), "rows", len(rows))
     spark.stop()
 
 

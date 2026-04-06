@@ -30,10 +30,13 @@ def build_total_ano_mes_estados(df_bronze_payments: DataFrame) -> DataFrame:
     df = apply_nov_2021_origin_rule(df_bronze_payments)
     df = parse_valor_parcela_decimal38(df)
 
+    benef_id = F.regexp_replace(F.trim(F.col("nis_favorecido")), r"\\D", "")
+    df = df.withColumn("_benef_id", benef_id).where(F.length(F.col("_benef_id")) > 0)
+
     out = (
         df.groupBy("mes_competencia", "uf")
         .agg(
-            F.countDistinct("nome_favorecido").alias("n"),
+            F.countDistinct("_benef_id").alias("n"),
             F.sum(F.col("valor_parcela_dec")).alias("total_estado"),
         )
         .transform(with_ano_mes_from_mes_competencia)

@@ -89,11 +89,15 @@
    - Then: run verification as a follow-up (and keep it short, robust, and restartable).
    - If verification fails/interrupts, still provide the partial conclusion + what remains to be verified.
 5. **Avoid multi-line heredocs in chat-driven terminals when they’re error-prone**
-   - If a multi-line snippet breaks, the shell starts executing Python lines as bash (causing many `syntax error near unexpected token` errors).
+   - In this environment, *heredocs are not reliable* (copy/paste artifacts, prompts, or escaping can prevent the heredoc from starting/ending).
+   - When the heredoc fails, the shell starts executing the Python lines as bash, producing errors like:
+     - `bash: syntax error near unexpected token 'F.col'`
+     - `bash: syntax error near unexpected token 'df.sort_values'`
+     - `bash: syntax error near unexpected token '('`
+   - **Rule:** don’t use `python - <<'PY' ... PY` here for anything non-trivial.
    - Prefer one of:
-     - a single `python -c "..."` (short),
-     - or write a small script file (e.g., `app/scripts/compare_population.py`) and run it,
-     - or ensure the heredoc delimiter (`PY`) is the only token on its line with no stray prompts or copy/paste artifacts.
+     - a single short `python -c "..."`,
+     - or **write a script file** under `app/scripts/` and run it (`python app/scripts/<name>.py`).
 6. **Don’t paste Python statements directly into bash**
    - Errors like `from: can't read /var/mail/...` and `bash: syntax error near unexpected token '('` happen when Python code is executed by the shell.
    - Always run Python snippets via `python -c '...'`, `python - <<'PY' ... PY`, or a `.py` script (`python path/to/script.py`).
@@ -133,6 +137,18 @@
    - Fix is to extend the deflator series beyond 2021 (or change the base year) and then rebuild/re-export gold.
 
 13. **Serving the web export locally (what worked / now stable / confirmed)**
+   - Added note: when doing audits/verification with pandas, don’t paste Python statements into bash.
+   - Put the audit logic in a reproducible script under `app/scripts/` and run it with `python ...`.
+   - Example: `python app/scripts/audit_pbf_per_benef.py`
+     - Confirms `pbfPerCapita == valor_2021 * 1e9 / populacao` (was exact in our run)
+     - Helps diagnose `pbfPerBenef` issues by inferring `n_benef` and printing `pbfPerBenef/12` (monthly) to spot annual-vs-monthly mismatches.
+
+14. **Heredoc + chat terminals: prefer scripts over `python - <<'PY' ...`**
+   - In this environment, multi-line heredocs are easy to break (copy/paste artifacts, missing terminator, or the shell showing `>` waiting for more input).
+   - When a heredoc fails, you end up “stuck” at the continuation prompt and can’t easily see what executed.
+   - **Rule:** if it’s more than a couple lines, write a script under `app/scripts/` and run it.
+   - Example script added in this task: `app/scripts/audit_benef_jump_2022.py` to quantify the 2022 jump in `n_benef`.
+
    - “Link doesn’t work” troubleshooting: `http://127.0.0.1:8000/` only works *after* the server is running. If you see `Connection refused`, start the server again (it was stopped / terminal closed).
    - Recommended steps:
      - `cd "/home/leochalhoub/getPBFData"`

@@ -160,9 +160,12 @@ h2 {
 
 .mainGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  /* 2-column dashboard:
+     - Left: filters
+     - Right: content stack (charts + map) */
+  grid-template-columns: 360px 1fr;
   gap: 12px;
-  align-items: stretch;
+  align-items: start;
 }
 
 /* Make the filters panel visually match the chart panels */
@@ -183,6 +186,9 @@ h2 {
   background: var(--panel-bg);
   box-shadow: var(--shadow-sm), var(--shadow);
   height: 100%;
+  /* Make Plotly canvases able to stretch to the panel height */
+  display: flex;
+  flex-direction: column;
 }
 
 .panelTitle {
@@ -269,13 +275,19 @@ button.primary {
 }
 
 /* Responsive plot heights tuned to fit notebook screens without overflow */
-/* Keep bar + map same height so they feel like paired views */
 #barWrap {
-  height: clamp(300px, 42vh, 520px);
+  flex: 1 1 auto;
+  min-height: clamp(300px, 36vh, 460px);
+}
+
+#benefWrap {
+  flex: 1 1 auto;
+  min-height: clamp(320px, 42vh, 560px);
 }
 
 #mapWrap {
-  height: clamp(300px, 42vh, 520px);
+  flex: 1 1 auto;
+  min-height: clamp(480px, 64vh, 860px);
 }
 
 .muted {
@@ -298,6 +310,64 @@ h3 {
 .footerGrid {
   display: grid;
   gap: 10px;
+}
+
+.sourcePath {
+  opacity: 0.9;
+}
+
+.sourceRow {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 2px 0;
+  flex-wrap: wrap;
+}
+
+.obsInline {
+  opacity: 0.85;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.linkedinBlock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.linkedinLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.linkedinIcon {
+  width: 1.15em; /* slightly larger than text height */
+  height: 1.15em;
+  display: inline-block;
+  flex: 0 0 auto;
+  vertical-align: -0.12em; /* match .brFlag */
+}
+
+/* Light mode: show blue, hide white */
+.linkedinIconLight {
+  display: inline-block;
+}
+.linkedinIconDark {
+  display: none;
+}
+
+/* Dark mode: show white, hide blue */
+body.dark .linkedinIconLight {
+  display: none;
+}
+body.dark .linkedinIconDark {
+  display: inline-block;
 }
 
 a {
@@ -325,6 +395,24 @@ a:hover {
 
   .control button {
     grid-column: auto;
+  }
+}
+
+/* Phone layout: stack controls and buttons vertically */
+@media (max-width: 520px) {
+  .controls {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 12px;
+  }
+
+  .control {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .control button {
+    width: 100%;
   }
 }
 
