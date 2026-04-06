@@ -849,6 +849,7 @@ async function downloadAllMapsZip({
   // Bigger PNGs (Brazil was too small)
   mapSize = { width: 1800, height: 1300 },
   barSize = { width: 1600, height: 900 },
+  benefSize = { width: 1600, height: 900 },
 }) {
   // Create hidden offscreen containers so the user doesn't see plots changing.
   const scratch = document.createElement("div");
@@ -864,9 +865,12 @@ async function downloadAllMapsZip({
 
   const barDiv = document.createElement("div");
   barDiv.id = "barExport";
+  const benefDiv = document.createElement("div");
+  benefDiv.id = "benefExport";
   const mapDiv = document.createElement("div");
   mapDiv.id = "mapExport";
   scratch.appendChild(barDiv);
+  scratch.appendChild(benefDiv);
   scratch.appendChild(mapDiv);
 
   try {
@@ -939,6 +943,84 @@ async function downloadAllMapsZip({
       );
 
       return toPngBytesFromDiv(barDiv, barSize);
+    }
+
+    async function renderBeneficiariesAndCapture() {
+      const isDark = document.body.classList.contains("dark");
+
+      const textColor = isDark ? "rgba(232, 238, 249, 0.92)" : "#111";
+      const gridColor = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
+      const bg = isDark ? "#0f172a" : "#ffffff";
+
+      const byReg = beneficiariesByRegionYear(rows);
+
+      // Fixed palette (stable across renders)
+      const colors = {
+        Norte: isDark ? "#60a5fa" : "#2563eb",
+        Nordeste: isDark ? "#34d399" : "#059669",
+        "Centro-Oeste": isDark ? "#fbbf24" : "#d97706",
+        Sudeste: isDark ? "#f472b6" : "#db2777",
+        Sul: isDark ? "#a78bfa" : "#7c3aed",
+      };
+
+      const traces = REGIOES_ORDER.filter((r) => byReg.has(r)).map((reg) => {
+        const m = byReg.get(reg);
+        const y = years.map((yy) => (m.has(yy) ? m.get(yy) : null));
+        const text = y.map((v) => (v === null ? "" : formatNumber(v, { decimals: 0 })));
+        return {
+          type: "scatter",
+          mode: "lines+markers",
+          name: reg,
+          x: years,
+          y,
+          line: { color: colors[reg] || "#888", width: 3 },
+          marker: { color: colors[reg] || "#888", size: 6 },
+          text,
+        };
+      });
+
+      await Plotly.newPlot(
+        benefDiv,
+        traces,
+        {
+          paper_bgcolor: bg,
+          plot_bgcolor: bg,
+          margin: { t: 10, r: 10, b: 70, l: 90 },
+          legend: {
+            orientation: "h",
+            x: 0,
+            y: -0.25,
+            xanchor: "left",
+            yanchor: "top",
+            font: { color: textColor },
+          },
+          yaxis: {
+            title: "Beneficiários (Região)",
+            rangemode: "tozero",
+            automargin: true,
+            gridcolor: gridColor,
+            zerolinecolor: gridColor,
+            tickfont: { color: textColor },
+            titlefont: { color: textColor },
+          },
+          xaxis: {
+            title: "Ano",
+            type: "category",
+            tickmode: "array",
+            tickvals: years,
+            ticktext: years.map(String),
+            tickangle: -45,
+            automargin: true,
+            gridcolor: "rgba(0,0,0,0)",
+            tickfont: { color: textColor },
+            titlefont: { color: textColor },
+          },
+          font: { color: textColor },
+        },
+        { displayModeBar: false, responsive: true }
+      );
+
+      return toPngBytesFromDiv(benefDiv, benefSize);
     }
 
     async function renderMapAndCapture(metricKey, yearValue) {
@@ -1040,6 +1122,12 @@ async function downloadAllMapsZip({
       );
 
       return toPngBytesFromDiv(mapDiv, mapSize);
+    }
+
+    // Beneficiaries (same for all metrics) - include once at root.
+    {
+      const bytes = await renderBeneficiariesAndCapture();
+      folder.file(`beneficiarios_por_regiao.png`, bytes);
     }
 
     for (const metricKey of metrics) {
