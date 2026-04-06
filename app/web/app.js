@@ -545,12 +545,30 @@ function setZipProgress({ visible, pct = 0, label = "" }) {
   const wrap = document.getElementById("zipProgress");
   const bar = document.getElementById("zipProgressBar");
   const txt = document.getElementById("zipProgressText");
-  if (!wrap || !bar || !txt) return;
 
-  wrap.style.display = visible ? "block" : "none";
+  // Also reflect progress on the button itself (more visible than the panel).
+  const btn = document.getElementById("downloadAllPng");
+
   const p = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0));
+  const pctText = `${Math.round(p)}%`;
+
+  if (btn) {
+    if (!btn.dataset.originalText) btn.dataset.originalText = btn.textContent || "Baixar imagens (PNG)";
+
+    if (visible) {
+      btn.disabled = true;
+      btn.textContent = label ? `${label} ${pctText}` : `Gerando ZIP… ${pctText}`;
+    } else {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.originalText;
+    }
+  }
+
+  // Keep the panel progress if it exists; but do not require it.
+  if (!wrap || !bar || !txt) return;
+  wrap.style.display = visible ? "block" : "none";
   bar.value = p;
-  txt.textContent = label || `${Math.round(p)}%`;
+  txt.textContent = label || pctText;
 }
 
 function setError(msg) {
