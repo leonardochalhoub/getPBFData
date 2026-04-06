@@ -541,6 +541,18 @@ function setLoading(isLoading) {
   el.style.display = isLoading ? "block" : "none";
 }
 
+function setZipProgress({ visible, pct = 0, label = "" }) {
+  const wrap = document.getElementById("zipProgress");
+  const bar = document.getElementById("zipProgressBar");
+  const txt = document.getElementById("zipProgressText");
+  if (!wrap || !bar || !txt) return;
+
+  wrap.style.display = visible ? "block" : "none";
+  const p = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0));
+  bar.value = p;
+  txt.textContent = label || `${Math.round(p)}%`;
+}
+
 function setError(msg) {
   const el = document.getElementById("error");
   if (!el) return;
@@ -882,6 +894,14 @@ async function downloadAllMapsZip({
     const metrics = ["valor_2021", "valor_nominal", "pbfPerBenef", "pbfPerCapita"];
 
     async function toPngBytesFromDiv(divEl, { width, height, scale = 2 }) {
+      // Make sure Plotly has computed final layout before exporting
+      // (offscreen divs can otherwise export blank images).
+      try {
+        await Plotly.Plots.resize(divEl);
+      } catch (_) {
+        // ignore
+      }
+      await new Promise((r) => setTimeout(r, 0));
       const dataUrl = await Plotly.toImage(divEl, { format: "png", width, height, scale });
       return dataUrlToU8(dataUrl);
     }
@@ -1124,38 +1144,55 @@ async function downloadAllMapsZip({
       return toPngBytesFromDiv(mapDiv, mapSize);
     }
 
+    const totalSteps = 1 + metrics.length * (1 + 1 + years.length);
+    let step = 0;
+    const tick = (label) => {
+      step += 1;
+      setZipProgress({ visible: true, pct: (step / totalSteps) * 100, label });
+    };
+
     // Beneficiaries (same for all metrics) - include once at root.
     {
+      setZipProgress({ visible: true, pct: 1, label: "Beneficiários…" });
       const bytes = await renderBeneficiariesAndCapture();
       folder.file(`beneficiarios_por_regiao.png`, bytes);
+      tick("Beneficiários…");
     }
 
     for (const metricKey of metrics) {
+      setZipProgress({ visible: true, pct: (step / totalSteps) * 100, label: `Métrica: ${metricKey}` });
       const metricFolder = folder.folder(safeFileToken(metricKey));
 
       // Bar chart
       {
         const bytes = await renderBarAndCapture(metricKey);
         metricFolder.file(`barras_total_brasil_${safeFileToken(metricKey)}.png`, bytes);
+        tick(`${metricKey}: barras`);
       }
 
       // Map AGG
       {
         const bytes = await renderMapAndCapture(metricKey, "AGG");
         metricFolder.file(`mapa_AGG_${years[0]}-${years[years.length - 1]}_${safeFileToken(metricKey)}.png`, bytes);
+        tick(`${metricKey}: AGG`);
       }
 
       // Maps each year
       for (const y of years) {
         const bytes = await renderMapAndCapture(metricKey, String(y));
         metricFolder.file(`mapa_${y}_${safeFileToken(metricKey)}.png`, bytes);
+        tick(`${metricKey}: ${y}`);
       }
     }
 
+    setZipProgress({ visible: true, pct: 99, label: "Compactando…" });
     const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+    setZipProgress({ visible: true, pct: 100, label: "Iniciando download…" });
+
     const zipName = `bolsa_familia_mapas_${safeFileToken(colorscale)}_${stamp}.zip`;
     triggerDownloadBlob(blob, zipName);
   } finally {
+    setZipProgress({ visible: false, pct: 0, label: "" });
     scratch.remove();
   }
 }
