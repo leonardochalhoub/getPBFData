@@ -276,4 +276,3 @@ O caminho “completo” (mais pesado, porém reprodutível) é ter um container
 Leonardo Chalhoub  
 E-mail: <leochalhoub@hotmail.com>  
 LinkedIn: https://www.linkedin.com/in/leonardochalhoub/
-GitHub: https://github.com/leonardochalhoub/getPBFData
