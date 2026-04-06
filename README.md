@@ -49,8 +49,7 @@ A proposta aqui é tratar como **Big Data**: baixar, ingerir e refinar em um for
 O web app está rodando em:
 - https://leonardochalhoub.github.io/getPBFData/
 
-Além da versão online, também existe uma imagem Docker (web-only) publicada no Docker Hub:
-- https://hub.docker.com/r/leochalhoub/getpbfdata-web
+Além da versão online, o web app também pode ser executado via Docker (veja a seção “Rodar via container (Web-only)” abaixo).
 
 > Observação: a URL raiz redireciona para o app em `./app/web/`.
 
