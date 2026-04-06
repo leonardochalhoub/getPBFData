@@ -12,3 +12,6 @@ data/
 # Lakehouse / Delta tables (generated)
 lakehouse/
 **/_delta_log/
+
+# Local audit scripts (ad-hoc)
+app/scripts/audit_*.py
