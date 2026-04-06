@@ -15,3 +15,4 @@ lakehouse/
 
 # Local audit scripts (ad-hoc)
 app/scripts/audit_*.py
+app/scripts/inspect_*.py
