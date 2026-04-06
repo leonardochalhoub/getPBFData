@@ -1,5 +1,19 @@
+"""
+Silver job: UF population (IBGE/SIDRA) panel.
+
+This module downloads IBGE SIDRA "Agregados" population estimates at UF (N3) level and
+builds a complete UF×Year panel. It is used as a denominator in per-capita metrics and
+other derived tables.
+
+Data source:
+  - IBGE/SIDRA Agregados API
+    - agregado=6579 (População residente estimada)
+    - variavel=9324
+    - localidades=N3[all] (UF)
+"""
+
 from __future__ import annotations
-from dataclasses import dataclass
+
 from pathlib import Path
 from typing import Tuple
 
@@ -11,13 +25,19 @@ from app.src.silver.common import LakehousePaths, build_delta_spark
 
 def _download_ibge_uf_population_estimates(*, start_year: int, end_year: int, timeout_s: int = 60) -> list[dict]:
     """
-    Download yearly UF population estimates from IBGE Agregados API (SIDRA).
+    Download yearly UF population estimates from IBGE's SIDRA Agregados API.
 
-    Using:
-      agregado=6579 (População residente estimada)
-      variavel=9324
-      localidades=N3[all] (UF level)
-      periodos=start_year-end_year (inclusive range)
+    Args:
+        start_year: First year (inclusive).
+        end_year: Last year (inclusive).
+        timeout_s: HTTP timeout in seconds.
+
+    Returns:
+        Parsed JSON response (Python objects) returned by the API.
+
+    Raises:
+        ValueError: If ``start_year > end_year``.
+        requests.HTTPError: If the API request fails.
     """
     if start_year > end_year:
         raise ValueError(f"start_year must be <= end_year. Got {start_year=} {end_year=}")
@@ -34,7 +54,16 @@ def _download_ibge_uf_population_estimates(*, start_year: int, end_year: int, ti
 
 def _ibge_population_json_to_df(spark: SparkSession, ibge_json: list[dict]) -> DataFrame:
     """
-    Convert IBGE Agregados JSON into Spark DF (Ano, uf, populacao).
+    Convert the IBGE Agregados JSON payload into a Spark DataFrame.
+
+    The output schema is ``(Ano:int, uf:string, populacao:double)``.
+
+    Args:
+        spark: Spark session used to create the DataFrame.
+        ibge_json: JSON payload as returned by :func:`_download_ibge_uf_population_estimates`.
+
+    Returns:
+        Spark DataFrame with UF/year population values (may contain missing years per UF).
     """
     uf_id_to_sigla = {
         "11": "RO",
@@ -98,12 +127,20 @@ def _ibge_population_json_to_df(spark: SparkSession, ibge_json: list[dict]) -> D
 
 def build_populacao_uf_ano(*, spark: SparkSession, start_year: int, end_year: int) -> DataFrame:
     """
-    Silver table: populacao_uf_ano
+    Build the Silver table ``populacao_uf_ano``.
 
-    Produces a complete UF x Year panel for [start_year, end_year], using:
-    - official IBGE UF yearly population estimates (Agregados API)
-    - linear interpolation for internal gaps
-    - linear extrapolation for edge gaps
+    Produces a complete UF×Year panel for the inclusive range ``[start_year, end_year]`` using:
+      - official IBGE UF yearly population estimates (Agregados API)
+      - linear interpolation for internal gaps (between known years)
+      - linear extrapolation for edge gaps (carry last/next known value)
+
+    Args:
+        spark: Spark session.
+        start_year: First year (inclusive).
+        end_year: Last year (inclusive).
+
+    Returns:
+        DataFrame with columns ``Ano``, ``uf`` and ``populacao`` (rounded to integers).
     """
     ibge_json = _download_ibge_uf_population_estimates(start_year=start_year, end_year=end_year)
     df_pop_raw = _ibge_population_json_to_df(spark, ibge_json)
@@ -166,6 +203,16 @@ def write_populacao_uf_ano(
     mode: str = "overwrite",
     partition_by: Tuple[str, ...] = ("Ano",),
 ) -> None:
+    """
+    Materialize ``populacao_uf_ano`` into the lakehouse Silver area.
+
+    Args:
+        lakehouse_root: Lakehouse root directory.
+        start_year: First year (inclusive).
+        end_year: Last year (inclusive).
+        mode: Spark write mode (default ``overwrite``).
+        partition_by: Delta partition columns (default partitions by year).
+    """
     spark = build_delta_spark("silver-populacao-uf-ano")
     paths = LakehousePaths(lakehouse_root=lakehouse_root)
 

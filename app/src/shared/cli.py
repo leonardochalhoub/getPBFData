@@ -1,14 +1,21 @@
 from __future__ import annotations
-from dataclasses import dataclass
-from pathlib import Path
 
 import argparse
-
-from shared.spark import SparkConfig, SparkFactory
-from bronze.bronze import BronzePaths, ZipPaymentsBronzeIngestor
+from pathlib import Path
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """
+    Build the CLI parser for the local lakehouse pipeline.
+
+    The CLI is intentionally minimal and currently exposes a single command:
+
+    - ``ingest-bronze``: read monthly ZIP files downloaded from the official sources and
+      write them into a Bronze Delta table layout under a given lakehouse root.
+
+    Returns:
+        An :class:`argparse.ArgumentParser` configured with subcommands and arguments.
+    """
     p = argparse.ArgumentParser(description="PBF/AuxBrasil/NBF pipeline (Delta Lake)")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -43,6 +50,21 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def cmd_ingest_bronze(args: argparse.Namespace) -> None:
+    """
+    Execute the ``ingest-bronze`` subcommand.
+
+    Creates a Spark session and runs the Bronze ingestion over all eligible (year, month)
+    groups found under ``--source-zips-dir``.
+
+    Args:
+        args: Parsed CLI arguments produced by :func:`build_parser`.
+
+    Raises:
+        SystemExit: If ``--min-competencia`` is not provided in ``YYYYMM`` format.
+    """
+    from bronze.payments import BronzePaths, ZipPaymentsBronzeIngestor
+    from shared.spark import SparkConfig, SparkFactory
+
     spark = SparkFactory.create(
         SparkConfig(
             app_name="pbf-ingest-bronze",
@@ -72,6 +94,11 @@ def cmd_ingest_bronze(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    """
+    Entry-point for ``python -m shared.cli`` / ``app/src/shared/cli.py``.
+
+    Parses CLI arguments and dispatches to the selected subcommand.
+    """
     parser = build_parser()
     args = parser.parse_args()
 

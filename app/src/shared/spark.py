@@ -1,13 +1,32 @@
+"""
+Spark/Delta bootstrap helpers.
+
+This module centralizes Spark session configuration used by the ingestion/transformation
+pipeline. It intentionally keeps configuration explicit and code-only (no external config
+files) to make runs reproducible.
+"""
+
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Optional
 
-from pyspark.sql import SparkSession
 from delta import configure_spark_with_delta_pip
+from pyspark.sql import SparkSession
 
 
 @dataclass(frozen=True)
 class SparkConfig:
+    """
+    Configuration used to build a SparkSession.
+
+    Attributes:
+        app_name: Name shown in Spark UI.
+        master: Spark master string (e.g. ``local[*]``). If ``None``, Spark uses its default.
+        shuffle_partitions: Default value for ``spark.sql.shuffle.partitions``.
+        timezone: Session timezone used by Spark SQL for timestamp/date handling.
+    """
+
     app_name: str = "pbf-pipeline"
     master: Optional[str] = None
     shuffle_partitions: int = 200
@@ -15,8 +34,22 @@ class SparkConfig:
 
 
 class SparkFactory:
+    """Factory for creating a configured :class:`pyspark.sql.SparkSession`."""
+
     @staticmethod
     def create(cfg: SparkConfig) -> SparkSession:
+        """
+        Create a SparkSession configured for Delta Lake.
+
+        The defaults are tuned for local execution and large file ingestion, and include
+        Delta Lake extensions/catalog configuration.
+
+        Args:
+            cfg: Session configuration.
+
+        Returns:
+            A ready-to-use SparkSession instance.
+        """
         builder = (
             SparkSession.builder.appName(cfg.app_name)
             .config("spark.sql.session.timeZone", cfg.timezone)

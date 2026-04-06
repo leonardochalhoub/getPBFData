@@ -1,17 +1,24 @@
-from __future__ import annotations
-
 """
-Print per-year non-null counts for key gold metrics from the web-exported JSON.
+Print per-year non-null counts for key Gold metrics from the web-exported JSON.
+
+This is a quick data-quality sanity check for the frontend dataset.
 
 Run:
-  python app/scripts/gold_metric_nonnull_by_year.py
+  ``PYTHONPATH=. python app/scripts/gold_metric_nonnull_by_year.py``
 """
+
+from __future__ import annotations
 
 import json
 from pathlib import Path
 
 
 def main() -> None:
+    """
+    Load the exported JSON and report how many UFs have non-null values per year.
+
+    Also prints whether a GeoJSON file exists (used by the web map).
+    """
     p = Path("exports/web/gold_pbf_estados_df_geo.json")
     rows = json.loads(p.read_text(encoding="utf-8"))
     years = sorted({r["Ano"] for r in rows})

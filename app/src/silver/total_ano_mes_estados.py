@@ -1,3 +1,12 @@
+"""
+Silver job: monthly totals by state (UF).
+
+Builds the Silver table ``total_ano_mes_estados``, aggregated at (Ano, Mes, UF) from the
+Bronze payments Delta table.
+
+This table is used as the base for downstream Gold exports and the web visualizations.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -16,16 +25,26 @@ from app.src.silver.common import (
 
 def build_total_ano_mes_estados(df_bronze_payments: DataFrame) -> DataFrame:
     """
-    Silver table: total_ano_mes_estados
+    Build the Silver table ``total_ano_mes_estados``.
 
-    Legacy reference: Passo2_dataPrep.R
-    - group_by(mes_competencia, uf)
-    - n = n_distinct(nome_favorecido)
-    - total_estado = sum(valor_parcela)
+    Legacy reference: ``Passo2_dataPrep.R``:
+      - group_by(mes_competencia, uf)
+      - n = n_distinct(nis_favorecido) (beneficiary identifier)
+      - total_estado = sum(valor_parcela)
 
-    Project rule:
-    - For 2021-11, use ONLY origin='PBF_AUX_SUM' (exclude PBF/AUX raw rows)
-    - For other months, exclude origin='PBF_AUX_SUM' to avoid double counting
+    Project rule (Nov/2021):
+      - for 2021-11, use ONLY ``origin="PBF_AUX_SUM"`` (exclude PBF/AUX raw rows)
+      - for other months, exclude ``origin="PBF_AUX_SUM"`` to avoid double counting
+
+    Args:
+        df_bronze_payments: Bronze payments DataFrame.
+
+    Returns:
+        DataFrame with columns:
+          - Ano, Mes
+          - uf, mes_competencia
+          - n (distinct beneficiaries)
+          - total_estado (sum of ``valor_parcela`` as Decimal)
     """
     df = apply_nov_2021_origin_rule(df_bronze_payments)
     df = parse_valor_parcela_decimal38(df)
@@ -51,6 +70,14 @@ def write_total_ano_mes_estados(
     mode: str = "overwrite",
     partition_by: Tuple[str, ...] = ("Ano", "Mes"),
 ) -> None:
+    """
+    Materialize ``total_ano_mes_estados`` into the lakehouse Silver area.
+
+    Args:
+        lakehouse_root: Lakehouse root directory.
+        mode: Spark write mode (default ``overwrite``).
+        partition_by: Delta partition columns (default partitions by year+month).
+    """
     spark = build_delta_spark("silver-total-ano-mes-estados")
     paths = LakehousePaths(lakehouse_root=lakehouse_root)
 
