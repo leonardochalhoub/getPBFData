@@ -152,7 +152,9 @@ def build_pbf_estados_df_geo(
     df_year = (
         df_total_ano_mes_estados.groupBy("Ano", "uf")
         .agg(
-            F.max("n").cast("long").alias("n_benef"),
+            # Silver 'n' is monthly distinct beneficiaries. Yearly should be the sum across months,
+            # not the max month, otherwise it undercounts.
+            F.sum(F.col("n")).cast("long").alias("n_benef"),
             (F.sum("total_estado") / F.lit(1e9)).alias("valor_nominal"),
         )
         .join(df_populacao_estados, on=["Ano", "uf"], how="left")

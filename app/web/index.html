@@ -59,20 +59,6 @@
               </div>
 
               <div class="control">
-                <label for="colorscale">Cores</label>
-                <select id="colorscale">
-                  <option value="Viridis">Viridis (daltônico)</option>
-                  <option value="Cividis" selected>Cividis (daltônico)</option>
-                  <option value="Blues">Azuis (Blues)</option>
-                  <option value="Greens">Verdes (Greens)</option>
-                  <option value="Greys">Cinzas (Greys)</option>
-                  <option value="YlGnBu">Arco-íris suave (YlGnBu)</option>
-                  <option value="YlOrRd">Escala de calor (YlOrRd)</option>
-                  <option value="Magma">Magma</option>
-                </select>
-              </div>
-
-              <div class="control">
                 <label for="year">Ano</label>
                 <select id="year">
                   <option value="AGG">Acumulado (2013–2025)</option>
@@ -117,10 +103,27 @@
             <div id="benefWrap"></div>
           </div>
 
-          <div class="panel">
-            <div class="panelTitle">
-              <div class="kicker">Passe o mouse para detalhes</div>
+          <div class="panel mapPanel">
+            <div class="mapTopBar">
+              <div class="panelTitle" style="margin-bottom: 0">
+                <div class="kicker">Passe o mouse para detalhes</div>
+              </div>
+
+              <div class="mapControls">
+                <label for="colorscale">Cores</label>
+                <select id="colorscale">
+                  <option value="Viridis">Viridis (daltônico)</option>
+                  <option value="Cividis" selected>Cividis (daltônico)</option>
+                  <option value="Blues">Azuis (Blues)</option>
+                  <option value="Greens">Verdes (Greens)</option>
+                  <option value="Greys">Cinzas (Greys)</option>
+                  <option value="YlGnBu">Arco-íris suave (YlGnBu)</option>
+                  <option value="YlOrRd">Escala de calor (YlOrRd)</option>
+                  <option value="Magma">Magma</option>
+                </select>
+              </div>
             </div>
+
             <div id="mapWrap"></div>
           </div>
 

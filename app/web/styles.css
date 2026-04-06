@@ -199,6 +199,31 @@ h2 {
   margin-bottom: 10px;
 }
 
+/* Map top-right controls (colorscale moved from left filters) */
+.mapTopBar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.mapControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.mapControls label {
+  margin: 0;
+  font-size: 12px;
+}
+
+.mapControls select {
+  min-width: 190px;
+}
+
 .panelTitle h3 {
   margin: 0;
   font-size: 14px;
