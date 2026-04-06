@@ -161,7 +161,13 @@ def build_pbf_estados_df_geo(
         .join(df_populacao_estados, on=["Ano", "uf"], how="left")
     )
 
-    # 1b) Annual unique beneficiaries from Silver (computed from payment-level rows, repeated on each month row)
+    # 1b) Annual distinct beneficiaries from Silver.
+    #
+    # IMPORTANT: `total_ano_mes_estados` contains:
+    # - `n`: monthly distinct beneficiaries
+    # - `n_ano`: annual distinct beneficiaries repeated on each month row
+    #
+    # Gold must use `n_ano` (annual distinct), NOT `n` (monthly distinct).
     df_year_benef = (
         df_total_ano_mes_estados.select("Ano", "uf", "n_ano")
         .distinct()
