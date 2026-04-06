@@ -1,6 +1,6 @@
 /* global Plotly */
 
-const DATA_URL = "./data/gold_pbf_estados_df_geo.json";
+const DATA_URL = "./gold_pbf_estados_df_geo.json";
 
 const GEOJSON_URL = ["./brazil-states.geojson"];
 
@@ -250,52 +250,23 @@ const REGIOES_ORDER = ["Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul"];
 
 function beneficiariesByRegionYear(rows) {
   // Beneficiaries by Região and year (sum of UFs in the region).
-  //
-  // IMPORTANT: current exported JSON may not include a beneficiaries column.
-  // In that case we can derive it from:
-  //   pbfPerBenef = (valor_2021 * 1e9) / n_benef
-  // => n_benef = (valor_2021 * 1e9) / pbfPerBenef
-  //
-  // We still accept explicit beneficiaries keys if they exist.
   const byReg = new Map(); // regiao -> Map(year -> sum)
-
   for (const r of rows) {
-    const y = Number(r.Ano);
+    const y = r.Ano;
     const uf = r.uf;
-
-    if (!Number.isFinite(y)) continue;
+    if (typeof y !== "number") continue;
     if (!uf) continue;
 
     const reg = UF_TO_REGIAO[uf];
     if (!reg) continue;
 
-    // 1) Try direct beneficiaries fields
-    const bRaw =
-      r.n_benef ??
-      r.nBenef ??
-      r.beneficiarios ??
-      r.n_beneficiarios ??
-      r.N_BENEF ??
-      null;
-
-    let b = Number(bRaw);
-
-    // 2) Fallback: derive from pbfPerBenef and valor_2021 if missing/invalid
-    if (!Number.isFinite(b)) {
-      const per = Number(r.pbfPerBenef);
-      const v2021 = Number(r.valor_2021);
-      if (Number.isFinite(per) && per > 0 && Number.isFinite(v2021) && v2021 > 0) {
-        b = (v2021 * 1e9) / per;
-      }
-    }
-
-    if (!Number.isFinite(b)) continue;
+    const b = r.n_benef;
+    if (b === null || b === undefined || Number.isNaN(b)) continue;
 
     if (!byReg.has(reg)) byReg.set(reg, new Map());
     const m = byReg.get(reg);
     m.set(y, (m.get(y) || 0) + b);
   }
-
   return byReg;
 }
 
@@ -878,7 +849,6 @@ async function downloadAllMapsZip({
   // Bigger PNGs (Brazil was too small)
   mapSize = { width: 1800, height: 1300 },
   barSize = { width: 1600, height: 900 },
-  benefSize = { width: 1600, height: 900 },
 }) {
   // Create hidden offscreen containers so the user doesn't see plots changing.
   const scratch = document.createElement("div");
@@ -894,12 +864,9 @@ async function downloadAllMapsZip({
 
   const barDiv = document.createElement("div");
   barDiv.id = "barExport";
-  const benefDiv = document.createElement("div");
-  benefDiv.id = "benefExport";
   const mapDiv = document.createElement("div");
   mapDiv.id = "mapExport";
   scratch.appendChild(barDiv);
-  scratch.appendChild(benefDiv);
   scratch.appendChild(mapDiv);
 
   try {
@@ -972,86 +939,6 @@ async function downloadAllMapsZip({
       );
 
       return toPngBytesFromDiv(barDiv, barSize);
-    }
-
-    async function renderBeneficiariesAndCapture() {
-      // Export the beneficiaries by region line chart.
-      // We reuse the same data-building logic used by the visible chart to avoid divergence.
-      const isDark = document.body.classList.contains("dark");
-
-      const textColor = isDark ? "rgba(232, 238, 249, 0.92)" : "#111";
-      const gridColor = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
-      const bg = isDark ? "#0f172a" : "#ffffff";
-
-      const byReg = beneficiariesByRegionYear(rows);
-
-      const colors = {
-        Norte: isDark ? "#60a5fa" : "#2563eb",
-        Nordeste: isDark ? "#34d399" : "#059669",
-        "Centro-Oeste": isDark ? "#fbbf24" : "#d97706",
-        Sudeste: isDark ? "#f472b6" : "#db2777",
-        Sul: isDark ? "#a78bfa" : "#7c3aed",
-      };
-
-      const traces = REGIOES_ORDER.filter((r) => byReg.has(r)).map((reg) => {
-        const m = byReg.get(reg);
-        const y = years.map((yy) => (m.has(yy) ? m.get(yy) : null));
-        const text = y.map((v) => (v === null ? "" : formatNumber(v, { decimals: 0 })));
-        return {
-          type: "scatter",
-          mode: "lines+markers",
-          name: reg,
-          x: years,
-          y,
-          line: { color: colors[reg] || "#888", width: 3 },
-          marker: { color: colors[reg] || "#888", size: 6 },
-          text,
-          hovertemplate: "Região=%{fullData.name}<br>Ano=%{x}<br>Beneficiários=%{text}<extra></extra>",
-        };
-      });
-
-      await Plotly.newPlot(
-        benefDiv,
-        traces,
-        {
-          paper_bgcolor: bg,
-          plot_bgcolor: bg,
-          margin: { t: 10, r: 10, b: 70, l: 90 },
-          legend: {
-            orientation: "h",
-            x: 0,
-            y: -0.25,
-            xanchor: "left",
-            yanchor: "top",
-            font: { color: textColor },
-          },
-          yaxis: {
-            title: "Beneficiários (Região)",
-            rangemode: "tozero",
-            automargin: true,
-            gridcolor: gridColor,
-            zerolinecolor: gridColor,
-            tickfont: { color: textColor },
-            titlefont: { color: textColor },
-          },
-          xaxis: {
-            title: "Ano",
-            type: "category",
-            tickmode: "array",
-            tickvals: years,
-            ticktext: years.map(String),
-            tickangle: -45,
-            automargin: true,
-            gridcolor: "rgba(0,0,0,0)",
-            tickfont: { color: textColor },
-            titlefont: { color: textColor },
-          },
-          font: { color: textColor },
-        },
-        { displayModeBar: false, responsive: true }
-      );
-
-      return toPngBytesFromDiv(benefDiv, benefSize);
     }
 
     async function renderMapAndCapture(metricKey, yearValue) {
@@ -1153,12 +1040,6 @@ async function downloadAllMapsZip({
       );
 
       return toPngBytesFromDiv(mapDiv, mapSize);
-    }
-
-    // Beneficiários chart (once per pack)
-    {
-      const bytes = await renderBeneficiariesAndCapture();
-      folder.file(`beneficiarios_regioes_${years[0]}-${years[years.length - 1]}.png`, bytes);
     }
 
     for (const metricKey of metrics) {
